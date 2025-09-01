@@ -38,55 +38,71 @@ Sistema completo para gestão de serviços, clientes e funcionários, com interf
 
 ---
 
-## ✅ Requisitos Funcionais
-RF01 Cadastro de Usuários: O sistema deve permitir o cadastro de novos usuários, diferenciando-os por tipos, como "cliente" e "funcionário".
-RF02 Autenticação e Autorização: O sistema deve prover um mecanismo de login seguro para autenticação de usuários e controlar o acesso às funcionalidades com base no tipo e permissões do usuário logado.
-RF03 Gestão de Serviços: O sistema deve permitir que usuários autorizados realizem o cadastro, a consulta, a edição e a exclusão dos serviços oferecidos pela empresa.
-RF04 Gestão de Clientes: O sistema deve permitir que usuários autorizados realizem o cadastro, a consulta, a edição e a exclusão de clientes na plataforma.
-RF05 Gestão de Funcionários: O sistema deve permitir que usuários com privilégios de administrador realizem o cadastro, a consulta, a edição e a exclusão de funcionários.
-RF06 Solicitação de Orçamento: O sistema deve permitir que clientes submetam solicitações de orçamento detalhando suas necessidades.
-RF07 Dashboard de Indicadores: O sistema deve apresentar um painel principal (dashboard) para usuários autenticados com um resumo visual das principais informações, como quantidade de clientes, total de serviços e status dos orçamentos.
-RF08 Comunicação via API: O sistema deve garantir que todas as operações de criação, leitura, atualização e exclusão (CRUD) de dados realizadas no frontend sejam processadas através de chamadas à API do backend.
-RF09 Acompanhamento de Status: O sistema deve exibir, em uma área dedicada no frontend, o status atualizado dos pedidos e orçamentos do cliente logado.
-RF10 Análise de Acessibilidade de URL: O sistema deve fornecer uma funcionalidade onde o cliente pode submeter uma URL para receber uma avaliação automatizada do nível de acessibilidade do site correspondente.
-RF11 Aprovação e Rejeição de Orçamentos: O sistema deve permitir que funcionários com a devida permissão alterem o status de um orçamento para "Aprovado" ou "Rejeitado".
-RF12 Histórico de Orçamentos: O sistema deve registrar e exibir para o cliente o histórico de todas as alterações de status de seus orçamentos, incluindo a data e a hora de cada mudança.
-RF13 Exportação de Orçamento: O sistema deve prover a funcionalidade de exportar os detalhes de um orçamento em formato PDF.
-RF14 Anexo de Arquivos: O sistema deve permitir que usuários (clientes e funcionários) realizem o upload de arquivos (documentos, imagens) e os associem a orçamentos ou aos seus perfis.
-RF15 Visualização de Anexos: O sistema deve permitir a pré-visualização de arquivos anexados (como imagens e PDFs) diretamente na interface do navegador, sem a necessidade de download.
+✅ Requisitos Funcionais
 
----
 
-## ✅ Requisitos Não Funcionais
-RNF01	O sistema deve responder às requisições da API em até 10 segundos, sob carga normal de usuários.
-RNF02	O frontend deve carregar a interface principal (dashboard) em no máximo 10 segundos após o login.
-RNF03	O sistema deve ser projetado de forma modular, permitindo futura expansão para novos serviços, integrações e aumento do número de usuários.
-RNF04	As senhas dos usuários devem ser armazenadas com hash (ex: bcrypt).
-RNF05	O sistema deve utilizar HTTPS para garantir a comunicação segura entre frontend e backend.
-RNF06	A autenticação deve ser feita via JWT (JSON Web Token) ou outro método seguro.
-RNF07	Deve haver controle de permissões conforme o tipo de usuário (cliente, funcionário, administrador, etc.).
-RNF08	O código deve ser escrito de forma clara, com comentários, documentação e boas práticas de programação para facilitar futuras manutenções.
-RNF09	O sistema deve seguir padrões de arquitetura como MVC ou Clean Architecture (dependendo da stack).
-RNF10	A interface do usuário deve ser intuitiva, responsiva e acessível em diferentes dispositivos (computador, tablet, celular).
-RNF11	Deve seguir princípios de design acessível, com atenção a contraste, tamanho de fonte e navegação por teclado.
-RNF12	Deve haver mensagens claras de erro para o usuário final e logs detalhados para análise por desenvolvedores.
-RNF13	O sistema deve ser compatível com os principais sistemas android.
-RNF14	O backend deve poder ser executado em ambientes Linux e containers Docker.
-RN01	Cadastro de Usuários: O sistema deve permitir o cadastro de diferentes tipos de usuários (clientes, funcionários).
-RN02	Autenticação e Autorização: O sistema deve permitir login seguro e garantir que apenas usuários autenticados acessem funcionalidades restritas.
-RN03	Gestão de Serviços: O sistema deve permitir o cadastro, edição, exclusão e listagem de serviços oferecidos pela empresa.
-RN04	Gestão de Clientes: O sistema deve permitir o cadastro, edição, exclusão e listagem de clientes.
-RN05	Gestão de Funcionários: O sistema deve permitir o cadastro, edição, exclusão e listagem de funcionários.
-RN06	Orçamento: O sistema deve permitir que clientes solicitem orçamentos e acompanhem o status.
-RN07	Dashboard: O sistema deve apresentar um painel com informações resumidas (quantidade de clientes, serviços, orçamentos, etc).
-RN08	Integração Frontend/Backend: O frontend deve consumir a API do backend para todas as operações de CRUD.
-RN09	Notificações: O cliente deve acompanhar o status de pedidos através da página de acesso no frontend.
-RN10	Avaliação de url via API: O cliente deve conseguir avaliar o nível de acessibilidade do seu site informando a url dele.
-RN11	Aprovação/Rejeição de Orçamentos: Funcionários devem poder aprovar ou rejeitar orçamentos solicitados.
-RN12	Histórico de Alterações de Status: O cliente deve poder visualizar o histórico de mudanças no status do orçamento.
-RN13	Exportar Orçamento: O sistema deve permitir que orçamentos sejam exportados em PDF.
-RN14	Upload de Documentos: Clientes e funcionários podem anexar documentos ou imagens em orçamentos ou perfis.
-RN15	Visualização de Arquivos: O sistema deve permitir visualizar os arquivos diretamente na interface, sem precisar baixar.
+    RF01 Cadastro de Usuários: O sistema deve permitir o cadastro de novos usuários, diferenciando-os por tipos, como "cliente" e "funcionário".
+
+    RF02 Autenticação e Autorização: O sistema deve prover um mecanismo de login seguro para autenticação de usuários e controlar o acesso às funcionalidades com base no tipo e permissões do usuário logado.
+
+    RF03 Gestão de Serviços: O sistema deve permitir que usuários autorizados realizem o cadastro, a consulta, a edição e a exclusão dos serviços oferecidos pela empresa.
+
+    RF04 Gestão de Clientes: O sistema deve permitir que usuários autorizados realizem o cadastro, a consulta, a edição e a exclusão de clientes na plataforma.
+
+    RF05 Gestão de Funcionários: O sistema deve permitir que usuários com privilégios de administrador realizem o cadastro, a consulta, a edição e a exclusão de funcionários.
+
+    RF06 Solicitação de Orçamento: O sistema deve permitir que clientes submetam solicitações de orçamento detalhando suas necessidades.
+
+    RF07 Dashboard de Indicadores: O sistema deve apresentar um painel principal (dashboard) para usuários autenticados com um resumo visual das principais informações, como quantidade de clientes, total de serviços e status dos orçamentos.
+
+    RF08 Comunicação via API: O sistema deve garantir que todas as operações de criação, leitura, atualização e exclusão (CRUD) de dados realizadas no frontend sejam processadas através de chamadas à API do backend.
+
+    RF09 Acompanhamento de Status: O sistema deve exibir, em uma área dedicada no frontend, o status atualizado dos pedidos e orçamentos do cliente logado.
+
+    RF10 Análise de Acessibilidade de URL: O sistema deve fornecer uma funcionalidade onde o cliente pode submeter uma URL para receber uma avaliação automatizada do nível de acessibilidade do site correspondente.
+
+    RF11 Aprovação e Rejeição de Orçamentos: O sistema deve permitir que funcionários com a devida permissão alterem o status de um orçamento para "Aprovado" ou "Rejeitado".
+
+    RF12 Histórico de Orçamentos: O sistema deve registrar e exibir para o cliente o histórico de todas as alterações de status de seus orçamentos, incluindo a data e a hora de cada mudança.
+
+    RF13 Exportação de Orçamento: O sistema deve prover a funcionalidade de exportar os detalhes de um orçamento em formato PDF.
+
+    RF14 Anexo de Arquivos: O sistema deve permitir que usuários (clientes e funcionários) realizem o upload de arquivos (documentos, imagens) e os associem a orçamentos ou aos seus perfis.
+
+    RF15 Visualização de Anexos: O sistema deve permitir a pré-visualização de arquivos anexados (como imagens e PDFs) diretamente na interface do navegador, sem a necessidade de download.
+
+⚙️ Requisitos Não Funcionais
+
+
+    RNF01 Desempenho da API: O sistema deve responder às requisições da API em até 10 segundos, sob carga normal de usuários.
+
+    RNF02 Desempenho do Frontend: O frontend deve carregar a interface principal (dashboard) em no máximo 10 segundos após o login.
+
+    RNF03 Escalabilidade: O sistema deve ser projetado de forma modular, permitindo futura expansão para novos serviços, integrações e aumento do número de usuários.
+
+    RNF04 Segurança de Senhas: As senhas dos usuários devem ser armazenadas com hash (ex: bcrypt).
+
+    RNF05 Segurança de Comunicação: O sistema deve utilizar HTTPS para garantir a comunicação segura entre frontend e backend.
+
+    RNF06 Segurança de Autenticação: A autenticação deve ser feita via JWT (JSON Web Token) ou outro método seguro.
+
+    RNF07 Controle de Acesso: Deve haver controle de permissões conforme o tipo de usuário (cliente, funcionário, administrador, etc.).
+
+    RNF08 Manutenibilidade: O código deve ser escrito de forma clara, com comentários, documentação e boas práticas de programação para facilitar futuras manutenções.
+
+    RNF09 Arquitetura: O sistema deve seguir padrões de arquitetura como MVC ou Clean Architecture (dependendo da stack).
+
+    RNF10 Usabilidade e Responsividade: A interface do usuário deve ser intuitiva, responsiva e acessível em diferentes dispositivos (computador, tablet, celular).
+
+    RNF11 Acessibilidade: A interface deve seguir princípios de design acessível, com atenção a contraste, tamanho de fonte e navegação por teclado.
+
+    RNF12 Confiabilidade e Diagnóstico: Deve haver mensagens claras de erro para o usuário final e logs detalhados para análise por desenvolvedores.
+
+    RNF13 Compatibilidade: O sistema deve ser compatível com os principais sistemas Android.
+
+    RNF14 Portabilidade: O backend deve poder ser executado em ambientes Linux e containers Docker.
+
+
 
 ---
 
@@ -117,8 +133,8 @@ RN15	Visualização de Arquivos: O sistema deve permitir visualizar os arquivos 
 
 ## 🗃️ Organização dos Repositórios
 
-- [Repositório Backend](https://github.com/ADACompany01/backEnd-QuartoSemestre)
-- [Repositório Frontend](https://github.com/ADACompany01/frontEnd-QuartoSemestre)
+- [Repositório Backend](https://github.com/ADACompany01/backEnd-QuintoSemestre)
+- [Repositório Frontend](https://github.com/ADACompany01/frontEnd-QuintoSemestre)
 
 Estrutura de pastas principal:
 
