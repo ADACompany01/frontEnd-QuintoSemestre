@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero/AdaHome.png" alt="ADA Company Banner" width="600"/>
+  <img src="images/heroImage.png" alt="ADA Company Banner" width="600"/>
 </p>
 
 # ADA Company - Projeto Final
