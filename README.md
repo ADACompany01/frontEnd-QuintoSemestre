@@ -67,9 +67,9 @@ Sistema completo para gestão de serviços, clientes e funcionários, com interf
 
     RF13 Exportação de Orçamento: O sistema deve prover a funcionalidade de exportar os detalhes de um orçamento em formato PDF.
 
-    RF14 Anexo de Arquivos: O sistema deve permitir que usuários (clientes e funcionários) realizem o upload de arquivos (documentos, imagens) e os associem a orçamentos ou aos seus perfis.
+    RF14 Anexo de imagens: O sistema deve permitir que usuários (clientes e funcionários) realizem o upload de imagens e os associem aos seus perfis.
 
-    RF15 Visualização de Anexos: O sistema deve permitir a pré-visualização de arquivos anexados (como imagens) diretamente na interface do navegador, sem a necessidade de download.
+    RF15 Visualização de Anexos: O sistema deve permitir a pré-visualização de arquivos anexados (como imagens e PDF's) diretamente na interface do navegador, sem a necessidade de download.
 
 ⚙️ Requisitos Não Funcionais
 
