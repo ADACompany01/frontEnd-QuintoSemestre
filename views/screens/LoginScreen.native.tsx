@@ -85,7 +85,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Image 
                 source={require('../../assets/AdaHome.png')}
                 style={styles.logo}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </View>
             <Text style={styles.title}>ADA Company</Text>
@@ -208,6 +208,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     borderWidth: 4,
     borderColor: '#ffffff',
+    backgroundColor: '#f8fafc',
   },
   title: {
     fontSize: 32,
