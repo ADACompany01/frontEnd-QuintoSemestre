@@ -79,7 +79,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <View style={styles.formContainer}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>✨ Accessibility Hub</Text>
+            <Text style={styles.title}>ADA Company</Text>
             <Text style={styles.subtitle}>Bem-vindo(a) de volta! 👋</Text>
           </View>
 
@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
