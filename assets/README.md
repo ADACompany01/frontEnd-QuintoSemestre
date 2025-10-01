@@ -16,12 +16,14 @@ Para adicionar a logo oficial da ADA Company:
 Após adicionar a imagem, atualize o arquivo `views/screens/LoginScreen.native.tsx`:
 
 ```typescript
-// Substitua esta linha:
+// Substitua esta linha (linha 86):
 source={{ uri: 'https://via.placeholder.com/120x120/6366f1/ffffff?text=ADA' }}
 
 // Por esta:
 source={require('../../assets/ada-logo.png')}
 ```
+
+**⚠️ IMPORTANTE**: Certifique-se de que o arquivo `ada-logo.png` existe na pasta `assets/` antes de fazer essa alteração, senão o app dará erro!
 
 ## Estrutura recomendada
 

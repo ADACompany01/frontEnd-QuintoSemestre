@@ -83,7 +83,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* Logo da ADA Company */}
             <View style={styles.logoContainer}>
               <Image 
-                source={require('../../assets/ada-logo.png')}
+                source={{ uri: 'https://via.placeholder.com/120x120/6366f1/ffffff?text=ADA' }}
                 style={styles.logo}
                 resizeMode="cover"
               />
