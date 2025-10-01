@@ -1,4 +1,4 @@
-# Accessibility Hub - React Native App
+# ADA Company - React Native App
 
 Uma aplicação React Native desenvolvida com Expo para avaliação e gestão de acessibilidade web, seguindo o padrão arquitetural **MVC (Model-View-Controller)**.
 
@@ -61,7 +61,7 @@ O projeto foi refatorado para seguir o padrão MVC, organizando o código em cam
 ```bash
 # Clone o repositório
 git clone <url-do-repositorio>
-cd accessibility-hub-app
+cd ada-company-app
 
 # Instale as dependências
 npm install
@@ -214,10 +214,10 @@ Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalh
 
 ## 👥 Equipe
 
-- **Desenvolvedor**: [Seu Nome]
+- **Empresa**: ADA Company
 - **Arquitetura**: Padrão MVC
 - **Framework**: React Native + Expo
 
 ---
 
-**Desenvolvido com ❤️ usando React Native e Expo**
+**Desenvolvido com ❤️ pela ADA Company usando React Native e Expo**
