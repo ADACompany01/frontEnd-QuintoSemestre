@@ -85,7 +85,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Image 
                 source={require('../../assets/AdaHome.png')}
                 style={styles.logo}
-                resizeMode="contain"
+                resizeMode="stretch"
               />
             </View>
             <Text style={styles.title}>ADA Company</Text>
