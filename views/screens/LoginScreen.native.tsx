@@ -18,7 +18,8 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { AuthController } from '../../controllers';
 
@@ -79,6 +80,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <View style={styles.formContainer}>
           {/* Header */}
           <View style={styles.header}>
+            {/* Logo da ADA Company */}
+            <View style={styles.logoContainer}>
+              <Image 
+                source={{ uri: 'https://via.placeholder.com/120x120/6366f1/ffffff?text=ADA' }}
+                style={styles.logo}
+                resizeMode="cover"
+              />
+            </View>
             <Text style={styles.title}>ADA Company</Text>
             <Text style={styles.subtitle}>Bem-vindo(a) de volta! 👋</Text>
           </View>
@@ -181,6 +190,24 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  logoContainer: {
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: '#ffffff',
   },
   title: {
     fontSize: 32,
