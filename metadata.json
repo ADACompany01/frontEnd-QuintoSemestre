@@ -1,0 +1,5 @@
+{
+  "name": "Accessibility Hub App",
+  "description": "A React application for a website accessibility company, featuring separate flows for clients and employees.",
+  "requestFramePermissions": []
+}

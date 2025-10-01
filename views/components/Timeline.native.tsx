@@ -1,0 +1,478 @@
+/**
+ * Timeline - Componente de timeline para acompanhamento de solicitações (React Native)
+ */
+
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { type AccessibilityRequest, type StatusConfig } from '../../models';
+
+interface TimelineProps {
+  request: AccessibilityRequest;
+  statusConfig: StatusConfig;
+  onApprove?: (requestId: string) => Promise<void>;
+  onSignContract?: (requestId: string) => Promise<void>;
+}
+
+export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApprove, onSignContract }) => {
+  if (!request) return null;
+
+  const { status, quoteFile, contractFile, developmentStatus } = request;
+  const { steps, map } = statusConfig;
+  const currentStepName = map[status] || steps[0];
+  const currentStepIndex = steps.indexOf(currentStepName);
+
+  const getStepStatus = (index: number) => {
+    const isCompleted = index < currentStepIndex;
+    const isCurrent = index === currentStepIndex;
+
+    if (isCurrent) return 'current';
+    if (isCompleted) return 'completed';
+    return 'pending';
+  };
+
+  const showQuoteFile = (step: string, index: number) => {
+    return step === 'Orçamento' && quoteFile && index <= currentStepIndex;
+  };
+
+  const showContractFile = (step: string, index: number) => {
+    return step === 'Contrato' && contractFile && index <= currentStepIndex;
+  };
+
+  const isQuoteStepActive = (step: string, index: number) => {
+    const stepStatus = getStepStatus(index);
+    return stepStatus === 'current' && step === 'Orçamento';
+  };
+
+  const canApproveQuote = (step: string, index: number) => {
+    return step === 'Orçamento' && quoteFile && status === 'Quote Sent';
+  };
+
+  const canSignContract = (step: string, index: number) => {
+    return step === 'Contrato' && contractFile && status === 'Contract Sent';
+  };
+
+  const handleApprove = async () => {
+    if (!onApprove) return;
+
+    Alert.alert(
+      'Aprovar Orçamento',
+      'Deseja aprovar este orçamento? O funcionário receberá a notificação.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Aprovar',
+          onPress: async () => {
+            try {
+              await onApprove(request.id.toString());
+              Alert.alert('Sucesso!', 'Orçamento aprovado! Aguarde o contrato.');
+            } catch (error) {
+              Alert.alert('Erro', 'Erro ao aprovar orçamento. Tente novamente.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSignContract = async () => {
+    if (!onSignContract) return;
+
+    Alert.alert(
+      'Assinar Contrato',
+      'Você será redirecionado para o DocuSign para assinar o contrato digitalmente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Assinar no DocuSign',
+          onPress: async () => {
+            try {
+              // Simular abertura do DocuSign
+              await Linking.openURL('https://www.docusign.com/sign');
+              
+              // Aguardar confirmação
+              setTimeout(async () => {
+                Alert.alert(
+                  'Confirmar Assinatura',
+                  'Você assinou o contrato no DocuSign?',
+                  [
+                    { text: 'Não', style: 'cancel' },
+                    {
+                      text: 'Sim, Assinado',
+                      onPress: async () => {
+                        try {
+                          await onSignContract(request.id.toString());
+                          Alert.alert('Sucesso!', 'Contrato assinado! O projeto entrará em desenvolvimento.');
+                        } catch (error) {
+                          Alert.alert('Erro', 'Erro ao confirmar assinatura.');
+                        }
+                      },
+                    },
+                  ]
+                );
+              }, 2000);
+            } catch (error) {
+              Alert.alert('Erro', 'Erro ao abrir DocuSign.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>🚀 Acompanhamento do Projeto</Text>
+
+      {steps.map((step, index) => {
+        const stepStatus = getStepStatus(index);
+        const showQuote = showQuoteFile(step, index);
+        const showContract = showContractFile(step, index);
+        const isQuoteActive = isQuoteStepActive(step, index);
+
+        return (
+          <View key={step} style={styles.stepContainer}>
+            {/* Connector line */}
+            {index > 0 && (
+              <View
+                style={[
+                  styles.connector,
+                  stepStatus === 'completed' && styles.connectorCompleted,
+                ]}
+              />
+            )}
+
+            {/* Step content */}
+            <View style={styles.stepContent}>
+              {/* Step indicator */}
+              <View
+                style={[
+                  styles.indicator,
+                  stepStatus === 'current' && styles.indicatorCurrent,
+                  stepStatus === 'completed' && styles.indicatorCompleted,
+                ]}
+              >
+                {stepStatus === 'completed' && <Text style={styles.checkIcon}>✓</Text>}
+                {stepStatus === 'current' && <View style={styles.currentDot} />}
+              </View>
+
+              {/* Step info */}
+              <View style={styles.stepInfo}>
+                <Text
+                  style={[
+                    styles.stepName,
+                    stepStatus === 'current' && styles.stepNameCurrent,
+                    stepStatus === 'completed' && styles.stepNameCompleted,
+                  ]}
+                >
+                  {step}
+                </Text>
+
+                {stepStatus === 'current' && (
+                  <Text style={styles.currentLabel}>✨ Etapa atual</Text>
+                )}
+
+                {stepStatus === 'completed' && (
+                  <Text style={styles.completedLabel}>✅ Concluído</Text>
+                )}
+
+                {/* File download buttons */}
+                {(showQuote || showContract) && (
+                  <View style={styles.fileActions}>
+                    <TouchableOpacity
+                      style={styles.fileButton}
+                      onPress={() => {
+                        const url = showQuote ? quoteFile!.url : contractFile!.url;
+                        Linking.openURL(url);
+                      }}
+                    >
+                      <Text style={styles.fileButtonText}>📄 Ver Arquivo</Text>
+                    </TouchableOpacity>
+
+                    {/* Approve button for quote */}
+                    {canApproveQuote(step, index) && onApprove && (
+                      <TouchableOpacity
+                        style={styles.approveButton}
+                        onPress={handleApprove}
+                      >
+                        <Text style={styles.approveButtonText}>✅ Aprovar Orçamento</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Sign contract button */}
+                    {canSignContract(step, index) && onSignContract && (
+                      <TouchableOpacity
+                        style={styles.signButton}
+                        onPress={handleSignContract}
+                      >
+                        <Text style={styles.signButtonText}>✍️ Assinar no DocuSign</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Status messages */}
+                {step === 'Orçamento' && status === 'Awaiting Quote' && (
+                  <Text style={styles.waitingText}>⏳ Aguardando orçamento do funcionário...</Text>
+                )}
+
+                {step === 'Orçamento' && status === 'Quote Approved' && (
+                  <Text style={styles.approvedText}>✅ Orçamento aprovado! Aguardando contrato...</Text>
+                )}
+
+                {step === 'Contrato' && status === 'Quote Approved' && (
+                  <Text style={styles.waitingText}>⏳ Funcionário está preparando o contrato...</Text>
+                )}
+
+                {step === 'Contrato' && status === 'Contract Signed' && (
+                  <Text style={styles.approvedText}>✅ Contrato assinado! Projeto em desenvolvimento...</Text>
+                )}
+
+                {/* Development progress */}
+                {step === 'Desenvolvimento' && status === 'In Development' && developmentStatus && (
+                  <View style={styles.developmentCard}>
+                    <Text style={styles.developmentTitle}>📊 Progresso do Desenvolvimento</Text>
+                    <View style={styles.developmentBadge}>
+                      <Text style={styles.developmentText}>
+                        {statusConfig.developmentSteps[['Analysis', 'Development', 'Testing', 'Done'].indexOf(developmentStatus)]}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 24,
+  },
+  stepContainer: {
+    position: 'relative',
+    marginBottom: 24,
+  },
+  connector: {
+    position: 'absolute',
+    left: 15,
+    top: -24,
+    width: 2,
+    height: 24,
+    backgroundColor: '#e5e7eb',
+  },
+  connectorCompleted: {
+    backgroundColor: '#10b981',
+  },
+  stepContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  indicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  indicatorCurrent: {
+    backgroundColor: '#6366f1',
+  },
+  indicatorCompleted: {
+    backgroundColor: '#10b981',
+  },
+  checkIcon: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  currentDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'white',
+  },
+  stepInfo: {
+    flex: 1,
+  },
+  stepName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#9ca3af',
+  },
+  stepNameCurrent: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6366f1',
+  },
+  stepNameCompleted: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  currentLabel: {
+    fontSize: 12,
+    color: '#6366f1',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  completedLabel: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  fileActions: {
+    marginTop: 12,
+    gap: 8,
+  },
+  fileButton: {
+    backgroundColor: '#6366f1',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignSelf: 'flex-start',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  fileButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  approveButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  approveButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  signButton: {
+    backgroundColor: '#8b5cf6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  signButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  waitingText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  approvedText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  developmentCard: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  developmentTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  developmentBadge: {
+    backgroundColor: '#6366f1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  developmentText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  contactCard: {
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+  },
+  contactTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  contactSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  contactButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  emailButton: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  emailButtonText: {
+    color: '#4b5563',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  whatsappButton: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  whatsappButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+});
