@@ -8,6 +8,14 @@
 // Auth Controller
 export { AuthController, type AuthState, type AuthAction } from './auth/AuthController';
 
+// Image Controller
+export { 
+  ImageController, 
+  type ImageControllerState, 
+  type ImageUploadResult, 
+  type ImageListResult 
+} from './image/ImageController';
+
 // Request Controller
 export { RequestController, type RequestState, type RequestAction } from './request/RequestController';
 

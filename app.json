@@ -34,6 +34,10 @@
         "image": "./assets/AdaHome.png",
         "resizeMode": "contain",
         "backgroundColor": "#667eea"
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "Este app precisa acessar a câmera para tirar fotos de perfil",
+        "NSPhotoLibraryUsageDescription": "Este app precisa acessar a galeria para selecionar fotos de perfil"
       }
     },
     "android": {
@@ -45,7 +49,12 @@
         "image": "./assets/AdaHome.png",
         "resizeMode": "contain",
         "backgroundColor": "#667eea"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro"

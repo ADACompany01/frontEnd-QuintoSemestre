@@ -9,6 +9,7 @@
  */
 
 import { UserModel, type User, type LoginCredentials } from '../../models';
+import { ImageController } from '../image/ImageController';
 
 export interface AuthState {
   currentUser: User | null;
@@ -33,6 +34,7 @@ export class AuthController {
     error: null
   };
   private listeners: Array<(state: AuthState) => void> = [];
+  private imageController: ImageController;
 
   /**
    * Singleton pattern para garantir uma única instância
@@ -42,6 +44,10 @@ export class AuthController {
       AuthController.instance = new AuthController();
     }
     return AuthController.instance;
+  }
+
+  private constructor() {
+    this.imageController = ImageController.getInstance();
   }
 
   /**
@@ -123,22 +129,56 @@ export class AuthController {
 
     try {
       // Valida credenciais usando o modelo
-      const user = UserModel.validateLogin(credentials);
+      const result = await UserModel.validateLogin(credentials);
       
-      if (!user) {
-        const error = 'Usuário não encontrado. Tente client@example.com ou employee@example.com';
+      if (!result.success || !result.data) {
+        const error = result.error || 'Usuário não encontrado. Tente client@example.com ou employee@example.com';
         this.dispatch({ type: 'LOGIN_ERROR', error });
         throw new Error(error);
       }
 
       // Login bem-sucedido
-      this.dispatch({ type: 'LOGIN_SUCCESS', user });
-      return user;
+      this.dispatch({ type: 'LOGIN_SUCCESS', user: result.data });
+
+      // Sincronizar foto de perfil em background (não bloqueia o login)
+      // TEMPORARIAMENTE DESABILITADO PARA DEBUG
+      // if (result.data.id) {
+      //   this.syncUserPhotoInBackground(result.data.id);
+      // }
+
+      return result.data;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       this.dispatch({ type: 'LOGIN_ERROR', error: errorMessage });
       throw error;
+    }
+  }
+
+  /**
+   * Sincroniza foto de perfil em background após login
+   */
+  private async syncUserPhotoInBackground(userId: number): Promise<void> {
+    try {
+      console.log(`[AuthController] Iniciando sincronização de foto para usuário ${userId}`);
+      
+      // Aguardar um pouco para não bloquear o login
+      setTimeout(async () => {
+        try {
+          const syncResult = await this.imageController.syncUserPhoto(userId);
+          
+          if (syncResult.success) {
+            console.log(`[AuthController] Foto sincronizada com sucesso para usuário ${userId}`);
+          } else {
+            console.warn(`[AuthController] Falha na sincronização de foto: ${syncResult.error}`);
+          }
+        } catch (syncError) {
+          console.warn(`[AuthController] Erro na sincronização de foto:`, syncError);
+        }
+      }, 1000); // Aguarda 1 segundo antes de sincronizar
+
+    } catch (error) {
+      console.warn(`[AuthController] Erro ao iniciar sincronização de foto:`, error);
     }
   }
 

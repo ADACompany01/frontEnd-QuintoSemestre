@@ -6,7 +6,15 @@
  */
 
 // User Model
-export { UserModel, type User, type LoginCredentials } from './user/UserModel';
+export { UserModel, type User, type LoginCredentials, type UserCreateData } from './user/UserModel';
+
+// Image Model
+export { 
+  ImageModel, 
+  type ImageData, 
+  type ImageUploadData, 
+  type ImageQueryOptions 
+} from './image/ImageModel';
 
 // Request Model
 export { 

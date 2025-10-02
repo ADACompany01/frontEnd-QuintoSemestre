@@ -11,13 +11,34 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AuthController } from './controllers';
+import { AuthController, ImageController } from './controllers';
 import { LoginScreen, ClientDashboard, EmployeeDashboard } from './views';
 import { type User } from './models';
 
 const App: React.FC = () => {
   const [authController] = useState(() => AuthController.getInstance());
+  const [imageController] = useState(() => ImageController.getInstance());
   const [authState, setAuthState] = useState(authController.getAuthState());
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Inicializar o banco de dados e controllers
+        const imageInitResult = await imageController.initialize();
+        if (!imageInitResult) {
+          console.error('Failed to initialize image controller');
+        }
+        
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('App initialization error:', error);
+        setIsInitialized(true); // Continuar mesmo com erro
+      }
+    };
+
+    initializeApp();
+  }, [imageController]);
 
   useEffect(() => {
     const unsubscribe = authController.subscribe(setAuthState);
@@ -34,6 +55,18 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     try {
+      // Mostrar loading enquanto inicializa
+      if (!isInitialized) {
+        return (
+          <View style={styles.loadingContainer}>
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="large" color="#6366f1" />
+              <Text style={styles.loadingText}>Inicializando aplicação...</Text>
+            </View>
+          </View>
+        );
+      }
+
       if (authState.isLoading) {
         return (
           <View style={styles.loadingContainer}>

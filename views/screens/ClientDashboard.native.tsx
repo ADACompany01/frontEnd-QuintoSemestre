@@ -3,11 +3,13 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { AuthController, RequestController, EvaluationController } from '../../controllers';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { AuthController, RequestController, EvaluationController, ImageController } from '../../controllers';
 import { EvaluationScreen } from './EvaluationScreen.native';
 import { PlanSelectionScreen } from './PlanSelectionScreen.native';
 import { Timeline } from '../components/Timeline.native';
+import { ImageUtils } from '../../utils/ImageUtils';
 import { type User } from '../../models';
 
 interface ClientDashboardProps {
@@ -21,10 +23,12 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('avaliar');
   const [evaluationState, setEvaluationState] = useState({ plan: null, issues: [] });
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
 
   // Controllers
   const [requestController] = useState(() => RequestController.getInstance());
   const [evaluationController] = useState(() => EvaluationController.getInstance());
+  const [imageController] = useState(() => ImageController.getInstance());
 
   // States
   const [requestState, setRequestState] = useState(requestController.getState());
@@ -35,6 +39,53 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       unsubscribeRequest();
     };
   }, [requestController]);
+
+  // Carregar foto do usuário
+  useEffect(() => {
+    const loadUserPhoto = async () => {
+      if (user.id) {
+        try {
+          // TEMPORARIAMENTE DESABILITADO PARA DEBUG
+          // // Primeiro, tentar sincronizar com o servidor
+          // console.log(`[ClientDashboard] Sincronizando foto do usuário ${user.id}`);
+          // const syncResult = await imageController.syncUserPhoto(user.id);
+          
+          // if (syncResult.success && syncResult.data?.localPath) {
+          //   console.log(`[ClientDashboard] Foto sincronizada: ${syncResult.data.localPath}`);
+          //   setUserPhoto(syncResult.data.localPath);
+          //   return;
+          // }
+
+          // Se não conseguiu sincronizar, buscar foto local
+          console.log(`[ClientDashboard] Buscando foto local para usuário ${user.id}`);
+          const result = await imageController.getImagesByUser(user.id);
+          if (result.success && result.data) {
+            // Buscar apenas a foto de perfil mais recente
+            const profilePhoto = result.data.find((img: any) => img.category === 'user_photo');
+            if (profilePhoto) {
+              console.log(`[ClientDashboard] Foto local encontrada: ${profilePhoto.file_path}`);
+              setUserPhoto(profilePhoto.file_path);
+            }
+          }
+        } catch (error) {
+          console.error('[ClientDashboard] Erro ao carregar foto:', error);
+          // Em caso de erro, tentar buscar foto local como fallback
+          try {
+            const result = await imageController.getImagesByUser(user.id);
+            if (result.success && result.data) {
+              const profilePhoto = result.data.find((img: any) => img.category === 'user_photo');
+              if (profilePhoto) {
+                setUserPhoto(profilePhoto.file_path);
+              }
+            }
+          } catch (fallbackError) {
+            console.error('[ClientDashboard] Erro no fallback:', fallbackError);
+          }
+        }
+      }
+    };
+    loadUserPhoto();
+  }, [user.id, imageController]);
 
   // Filter requests for current client
   const clientRequests = useMemo(
@@ -106,6 +157,151 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     }
   };
 
+  const handlePhotoUpload = async () => {
+    try {
+      // Mostrar opções para o usuário escolher
+      Alert.alert(
+        'Selecionar Foto',
+        'Escolha como deseja adicionar sua foto de perfil',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+          {
+            text: 'Galeria',
+            onPress: () => selectImageFromGallery(),
+          },
+          {
+            text: 'Câmera',
+            onPress: () => selectImageFromCamera(),
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('Error showing photo options:', error);
+      Alert.alert('Erro', 'Não foi possível abrir as opções de foto');
+    }
+  };
+
+  const selectImageFromGallery = async () => {
+    try {
+      // Solicitar permissão para acessar a galeria
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permissão necessária', 'É necessário permitir o acesso à galeria para selecionar fotos.');
+        return;
+      }
+
+      // Abrir a galeria
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadSelectedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error selecting image from gallery:', error);
+      Alert.alert('Erro', 'Não foi possível acessar a galeria');
+    }
+  };
+
+  const selectImageFromCamera = async () => {
+    try {
+      // Solicitar permissão para acessar a câmera
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permissão necessária', 'É necessário permitir o acesso à câmera para tirar fotos.');
+        return;
+      }
+
+      // Abrir a câmera
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadSelectedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error selecting image from camera:', error);
+      Alert.alert('Erro', 'Não foi possível acessar a câmera');
+    }
+  };
+
+  const uploadSelectedImage = async (imageUri: string) => {
+    try {
+      console.log(`[ClientDashboard] Iniciando upload da foto: ${imageUri}`);
+      
+      // Validar se o usuário tem ID
+      if (!user.id) {
+        throw new Error('ID do usuário não encontrado');
+      }
+
+      // Criar arquivo temporário
+      console.log(`[ClientDashboard] Gerando nome único para arquivo`);
+      const filename = ImageUtils.generateUniqueFilename('profile_photo', 'user_photo');
+      console.log(`[ClientDashboard] Nome do arquivo: ${filename}`);
+      
+      const fileResult = await ImageUtils.copyToDocuments(imageUri, filename);
+      
+      if (!fileResult.success || !fileResult.data) {
+        console.error(`[ClientDashboard] Falha ao criar arquivo: ${fileResult.error}`);
+        throw new Error('Falha ao criar arquivo');
+      }
+
+      console.log(`[ClientDashboard] Arquivo criado: ${fileResult.data}`);
+
+      // Obter informações do arquivo
+      console.log(`[ClientDashboard] Obtendo informações do arquivo`);
+      const fileInfo = await ImageUtils.getImageInfo(fileResult.data);
+      if (!fileInfo.success || !fileInfo.data) {
+        console.error(`[ClientDashboard] Falha ao obter informações: ${fileInfo.error}`);
+        throw new Error('Falha ao obter informações do arquivo');
+      }
+
+      console.log(`[ClientDashboard] Informações do arquivo:`, fileInfo.data);
+
+      // Upload da imagem SEM sincronização automática (para debug)
+      console.log(`[ClientDashboard] Fazendo upload da foto para usuário ${user.id}`);
+      const uploadResult = await imageController.uploadImage(
+        fileResult.data,
+        'user_photo',
+        user.id,
+        filename,
+        false // Desabilitar sincronização
+      );
+
+      if (!uploadResult.success || !uploadResult.data) {
+        console.error(`[ClientDashboard] Falha no upload: ${uploadResult.error}`);
+        throw new Error(uploadResult.error || 'Falha no upload');
+      }
+
+      console.log(`[ClientDashboard] Upload realizado com sucesso`);
+
+      // Atualizar estado local
+      setUserPhoto(fileResult.data);
+      
+      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso! A foto será sincronizada com outros dispositivos.');
+
+    } catch (error) {
+      console.error('[ClientDashboard] Error uploading selected image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      Alert.alert('Erro', `Erro ao fazer upload da foto: ${errorMessage}`);
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'avaliar':
@@ -144,16 +340,40 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         return (
           <ScrollView style={styles.content}>
             <View style={styles.profileCard}>
-              <View style={styles.profileAvatar}>
-                <Text style={styles.profileAvatarText}>
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </Text>
-              </View>
+              <TouchableOpacity 
+                style={styles.profileAvatarContainer}
+                onPress={handlePhotoUpload}
+              >
+                {userPhoto ? (
+                  <Image source={{ uri: userPhoto }} style={styles.profileAvatarImage} />
+                ) : (
+                  <View style={styles.profileAvatar}>
+                    <Text style={styles.profileAvatarText}>
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.photoUploadOverlay}>
+                  <Text style={styles.photoUploadIcon}>
+                    {userPhoto ? '📷' : '➕'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              
               <Text style={styles.profileName}>{user?.name || 'N/A'}</Text>
               <Text style={styles.profileEmail}>{user?.email || 'N/A'}</Text>
               <View style={styles.profileBadge}>
                 <Text style={styles.profileBadgeText}>Cliente</Text>
               </View>
+              
+              <TouchableOpacity 
+                style={styles.photoButton}
+                onPress={handlePhotoUpload}
+              >
+                <Text style={styles.photoButtonText}>
+                  {userPhoto ? 'Alterar Foto' : 'Adicionar Foto'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.historyTitle}>📋 Histórico de Planos</Text>
@@ -225,6 +445,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             Acompanhar
           </Text>
         </TouchableOpacity>
+
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'perfil' && styles.tabActive]}
@@ -452,5 +673,46 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: '#6366f1',
     fontWeight: '700',
+  },
+  profileAvatarContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  profileAvatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f3f4f6',
+  },
+  photoUploadOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#6366f1',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  photoUploadIcon: {
+    fontSize: 16,
+    color: 'white',
+  },
+  photoButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  photoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
