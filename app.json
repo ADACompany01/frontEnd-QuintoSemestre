@@ -8,27 +8,42 @@
     "icon": "./assets/AdaHome.png",
     "splash": {
       "image": "./assets/AdaHome.png",
-      "resizeMode": "cover",
+      "resizeMode": "contain",
       "backgroundColor": "#667eea"
     },
     "splashScreen": {
       "hideExponentText": true,
-      "hideInstructions": true
+      "hideInstructions": true,
+      "resizeMode": "contain"
     },
     "loading": {
       "hideExponentText": true,
       "hideInstructions": true,
-      "icon": "./assets/AdaHome.png"
+      "icon": "./assets/AdaHome.png",
+      "backgroundColor": "#667eea"
+    },
+    "developer": {
+      "tool": "expo-cli"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "splash": {
+        "image": "./assets/AdaHome.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#667eea"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/AdaHome.png",
+        "backgroundColor": "#667eea"
+      },
+      "splash": {
+        "image": "./assets/AdaHome.png",
+        "resizeMode": "contain",
         "backgroundColor": "#667eea"
       }
     },
