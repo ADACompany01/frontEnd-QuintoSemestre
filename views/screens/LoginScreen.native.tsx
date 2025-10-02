@@ -85,7 +85,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Image 
                 source={require('../../assets/AdaHome.png')}
                 style={styles.logo}
-                resizeMode="stretch"
+                resizeMode="cover"
               />
             </View>
             <Text style={styles.title}>ADA Company</Text>
@@ -172,12 +172,12 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 15,
   },
   formContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 24,
-    padding: 32,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -189,10 +189,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
   },
   logoContainer: {
-    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -203,11 +201,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#ffffff',
+    width: 200,
+    height: 200,
+    borderRadius: 90,
+    borderWidth: 0,
+    borderColor: '#000000',
     backgroundColor: '#f8fafc',
   },
   title: {

@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/AdaHome.png",
     "splash": {
+      "image": "./assets/AdaHome.png",
       "resizeMode": "contain",
       "backgroundColor": "#667eea"
     },
@@ -17,6 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/AdaHome.png",
         "backgroundColor": "#667eea"
       }
     },
