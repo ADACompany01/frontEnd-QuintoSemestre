@@ -90,8 +90,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   // Filter requests for current client
   const clientRequests = useMemo(
-    () => RequestController.prototype.getRequestsByClient.call(requestController, user.name),
-    [requestController, user.name]
+    () => requestState.requests.filter(r => r.clientName === user.name),
+    [requestState.requests, user.name]
   );
 
   const activeRequest = useMemo(
