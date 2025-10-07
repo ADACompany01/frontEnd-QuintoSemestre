@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { AuthController, RequestController, EvaluationController, ImageController } from '../../controllers';
 import { EvaluationScreen } from './EvaluationScreen.native';
@@ -24,6 +24,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [activeTab, setActiveTab] = useState('avaliar');
   const [evaluationState, setEvaluationState] = useState({ plan: null, issues: [] });
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
 
   // Controllers
   const [requestController] = useState(() => RequestController.getInstance());
@@ -157,6 +158,14 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     }
   };
 
+  const handleViewPhoto = () => {
+    if (userPhoto) {
+      setIsPhotoModalVisible(true);
+    } else {
+      handlePhotoUpload();
+    }
+  };
+
   const handlePhotoUpload = async () => {
     try {
       // Mostrar opções para o usuário escolher
@@ -187,14 +196,19 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const selectImageFromGallery = async () => {
     try {
+      console.log(`[ClientDashboard] Solicitando permissão da galeria`);
+      
       // Solicitar permissão para acessar a galeria
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
+        console.log(`[ClientDashboard] Permissão da galeria negada`);
         Alert.alert('Permissão necessária', 'É necessário permitir o acesso à galeria para selecionar fotos.');
         return;
       }
 
+      console.log(`[ClientDashboard] Abrindo galeria`);
+      
       // Abrir a galeria
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -204,25 +218,35 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         base64: false,
       });
 
+      console.log(`[ClientDashboard] Resultado da galeria:`, { canceled: result.canceled, hasAssets: !!result.assets });
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log(`[ClientDashboard] Imagem selecionada: ${result.assets[0].uri}`);
         await uploadSelectedImage(result.assets[0].uri);
+      } else {
+        console.log(`[ClientDashboard] Seleção cancelada ou sem assets`);
       }
     } catch (error) {
-      console.error('Error selecting image from gallery:', error);
+      console.error('[ClientDashboard] Error selecting image from gallery:', error);
       Alert.alert('Erro', 'Não foi possível acessar a galeria');
     }
   };
 
   const selectImageFromCamera = async () => {
     try {
+      console.log(`[ClientDashboard] Solicitando permissão da câmera`);
+      
       // Solicitar permissão para acessar a câmera
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       
       if (permissionResult.granted === false) {
+        console.log(`[ClientDashboard] Permissão da câmera negada`);
         Alert.alert('Permissão necessária', 'É necessário permitir o acesso à câmera para tirar fotos.');
         return;
       }
 
+      console.log(`[ClientDashboard] Abrindo câmera`);
+      
       // Abrir a câmera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
@@ -231,23 +255,35 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         base64: false,
       });
 
+      console.log(`[ClientDashboard] Resultado da câmera:`, { canceled: result.canceled, hasAssets: !!result.assets });
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log(`[ClientDashboard] Foto capturada: ${result.assets[0].uri}`);
         await uploadSelectedImage(result.assets[0].uri);
+      } else {
+        console.log(`[ClientDashboard] Captura cancelada ou sem assets`);
       }
     } catch (error) {
-      console.error('Error selecting image from camera:', error);
+      console.error('[ClientDashboard] Error selecting image from camera:', error);
       Alert.alert('Erro', 'Não foi possível acessar a câmera');
     }
   };
 
   const uploadSelectedImage = async (imageUri: string) => {
+    let loadingShown = false;
+    
     try {
       console.log(`[ClientDashboard] Iniciando upload da foto: ${imageUri}`);
       
       // Validar se o usuário tem ID
       if (!user.id) {
-        throw new Error('ID do usuário não encontrado');
+        console.error(`[ClientDashboard] ID do usuário não encontrado`);
+        Alert.alert('Erro', 'ID do usuário não encontrado');
+        return;
       }
+
+      // Mostrar feedback visual
+      loadingShown = true;
 
       // Criar arquivo temporário
       console.log(`[ClientDashboard] Gerando nome único para arquivo`);
@@ -258,7 +294,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       
       if (!fileResult.success || !fileResult.data) {
         console.error(`[ClientDashboard] Falha ao criar arquivo: ${fileResult.error}`);
-        throw new Error('Falha ao criar arquivo');
+        Alert.alert('Erro', 'Falha ao criar arquivo da imagem');
+        return;
       }
 
       console.log(`[ClientDashboard] Arquivo criado: ${fileResult.data}`);
@@ -268,32 +305,44 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       const fileInfo = await ImageUtils.getImageInfo(fileResult.data);
       if (!fileInfo.success || !fileInfo.data) {
         console.error(`[ClientDashboard] Falha ao obter informações: ${fileInfo.error}`);
-        throw new Error('Falha ao obter informações do arquivo');
+        Alert.alert('Erro', 'Falha ao obter informações do arquivo');
+        return;
       }
 
       console.log(`[ClientDashboard] Informações do arquivo:`, fileInfo.data);
 
       // Upload da imagem SEM sincronização automática (para debug)
       console.log(`[ClientDashboard] Fazendo upload da foto para usuário ${user.id}`);
+      
       const uploadResult = await imageController.uploadImage(
         fileResult.data,
         'user_photo',
         user.id,
         filename,
         false // Desabilitar sincronização
-      );
+      ).catch((uploadError) => {
+        console.error(`[ClientDashboard] Exceção no upload:`, uploadError);
+        return { success: false, error: uploadError.message || 'Erro desconhecido no upload', data: undefined };
+      });
 
       if (!uploadResult.success || !uploadResult.data) {
         console.error(`[ClientDashboard] Falha no upload: ${uploadResult.error}`);
-        throw new Error(uploadResult.error || 'Falha no upload');
+        Alert.alert('Erro', `Falha no upload: ${uploadResult.error || 'Erro desconhecido'}`);
+        return;
       }
 
       console.log(`[ClientDashboard] Upload realizado com sucesso`);
 
-      // Atualizar estado local
-      setUserPhoto(fileResult.data);
+      // Atualizar estado local de forma segura
+      try {
+        setUserPhoto(fileResult.data);
+        console.log(`[ClientDashboard] Estado da foto atualizado`);
+      } catch (stateError) {
+        console.error(`[ClientDashboard] Erro ao atualizar estado:`, stateError);
+      }
       
-      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso! A foto será sincronizada com outros dispositivos.');
+      // Mostrar mensagem de sucesso
+      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
 
     } catch (error) {
       console.error('[ClientDashboard] Error uploading selected image:', error);
@@ -342,7 +391,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             <View style={styles.profileCard}>
               <TouchableOpacity 
                 style={styles.profileAvatarContainer}
-                onPress={handlePhotoUpload}
+                onPress={handleViewPhoto}
+                activeOpacity={0.8}
               >
                 {userPhoto ? (
                   <Image source={{ uri: userPhoto }} style={styles.profileAvatarImage} />
@@ -355,7 +405,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                 )}
                 <View style={styles.photoUploadOverlay}>
                   <Text style={styles.photoUploadIcon}>
-                    {userPhoto ? '📷' : '➕'}
+                    {userPhoto ? '🔍' : '➕'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -402,11 +452,19 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </Text>
-          </View>
+          <TouchableOpacity 
+            style={styles.avatar}
+            onPress={handleViewPhoto}
+            activeOpacity={0.8}
+          >
+            {userPhoto ? (
+              <Image source={{ uri: userPhoto }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </Text>
+            )}
+          </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋</Text>
             <Text style={styles.email}>{user?.email || 'email@example.com'}</Text>
@@ -459,6 +517,46 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal de visualização da foto em tela cheia */}
+      <Modal
+        visible={isPhotoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsPhotoModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.modalCloseButton}
+            onPress={() => setIsPhotoModalVisible(false)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.modalCloseButtonText}>✕</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.modalContent}>
+            {userPhoto && (
+              <Image 
+                source={{ uri: userPhoto }} 
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={() => {
+                setIsPhotoModalVisible(false);
+                handlePhotoUpload();
+              }}
+            >
+              <Text style={styles.modalButtonText}>📷 Alterar Foto</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -490,6 +588,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   avatarText: {
     color: 'white',
@@ -714,5 +818,64 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Estilos do Modal
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 80,
+  },
+  modalImage: {
+    width: '90%',
+    height: '90%',
+  },
+  modalActions: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

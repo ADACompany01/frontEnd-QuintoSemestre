@@ -200,12 +200,19 @@ export class ImageController {
         console.log(`[ImageController] Sincronização não necessária - syncToServer: ${syncToServer}, category: ${category}, userId: ${userId}`);
       }
 
+      console.log(`[ImageController] Upload finalizado com sucesso`);
       return { success: true, data: saveResult.data };
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error('[ImageController] Error uploading image:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.setState({ isLoading: false, error: errorMessage });
-      return { success: false, error: errorMessage };
+      
+      // Garantir que sempre retornamos um objeto válido
+      return { 
+        success: false, 
+        error: errorMessage,
+        data: undefined
+      };
     }
   }
 
