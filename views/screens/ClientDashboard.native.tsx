@@ -2,8 +2,8 @@
  * ClientDashboard - Dashboard do cliente para React Native
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Modal } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Modal, AppState } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { AuthController, RequestController, EvaluationController, ImageController } from '../../controllers';
 import { EvaluationScreen } from './EvaluationScreen.native';
@@ -33,6 +33,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   // States
   const [requestState, setRequestState] = useState(requestController.getState());
+  const appState = useRef(AppState.currentState);
+  const [appStateVisible, setAppStateVisible] = useState(appState.current);
 
   useEffect(() => {
     const unsubscribeRequest = requestController.subscribe(setRequestState);
@@ -86,6 +88,42 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       }
     };
     loadUserPhoto();
+  }, [user.id, imageController]);
+
+  // Monitorar AppState para recarregar foto quando app volta do background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('[ClientDashboard] App voltou para foreground, recarregando foto...');
+        // Recarregar foto quando app volta do background
+        const reloadPhoto = async () => {
+          if (user.id) {
+            try {
+              const result = await imageController.getImagesByUser(user.id);
+              if (result.success && result.data) {
+                const profilePhoto = result.data.find((img: any) => img.category === 'user_photo');
+                if (profilePhoto) {
+                  setUserPhoto(profilePhoto.file_path);
+                }
+              }
+            } catch (error) {
+              console.error('[ClientDashboard] Erro ao recarregar foto:', error);
+            }
+          }
+        };
+        reloadPhoto();
+      }
+
+      appState.current = nextAppState;
+      setAppStateVisible(appState.current);
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [user.id, imageController]);
 
   // Filter requests for current client

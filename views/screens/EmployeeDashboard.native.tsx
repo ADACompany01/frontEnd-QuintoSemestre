@@ -2,8 +2,8 @@
  * EmployeeDashboard - Dashboard do funcionário para React Native
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput, Image, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput, Image, Modal, AppState } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { RequestController, ImageController } from '../../controllers';
 import { StarRating } from '../components/StarRating.native';
@@ -28,6 +28,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   const [requestState, setRequestState] = useState(requestController.getState());
   const [uploadingFileFor, setUploadingFileFor] = useState<{ type: 'quote' | 'contract'; request: AccessibilityRequest } | null>(null);
   const [fileName, setFileName] = useState('');
+  const appState = useRef(AppState.currentState);
+  const [appStateVisible, setAppStateVisible] = useState(appState.current);
 
   useEffect(() => {
     const unsubscribeRequest = requestController.subscribe(setRequestState);
@@ -56,6 +58,42 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
       }
     };
     loadUserPhoto();
+  }, [user.id, imageController]);
+
+  // Monitorar AppState para recarregar foto quando app volta do background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('[EmployeeDashboard] App voltou para foreground, recarregando foto...');
+        // Recarregar foto quando app volta do background
+        const reloadPhoto = async () => {
+          if (user.id) {
+            try {
+              const result = await imageController.getImagesByUser(user.id);
+              if (result.success && result.data) {
+                const profilePhoto = result.data.find((img: any) => img.category === 'user_photo');
+                if (profilePhoto) {
+                  setUserPhoto(profilePhoto.file_path);
+                }
+              }
+            } catch (error) {
+              console.error('[EmployeeDashboard] Erro ao recarregar foto:', error);
+            }
+          }
+        };
+        reloadPhoto();
+      }
+
+      appState.current = nextAppState;
+      setAppStateVisible(appState.current);
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [user.id, imageController]);
 
   const statusConfig = requestController.getStatusConfig();
