@@ -25,6 +25,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [evaluationState, setEvaluationState] = useState({ plan: null, issues: [] });
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
+  const [selectedHistoryRequest, setSelectedHistoryRequest] = useState<any | null>(null);
 
   // Controllers
   const [requestController] = useState(() => RequestController.getInstance());
@@ -134,11 +135,21 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const activeRequest = useMemo(
     () => {
-      // Pega a solicitação mais recente que não está completa
-      const active = clientRequests
+      // Pega a solicitação mais recente (prioriza não completa, mas mostra completa se não houver outra)
+      const notCompleted = clientRequests
         .filter((r) => r.status !== 'Completed')
         .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))[0];
-      return active || null;
+      
+      if (notCompleted) {
+        return notCompleted;
+      }
+      
+      // Se não houver nenhuma não completa, pega a mais recente completa
+      const completed = clientRequests
+        .filter((r) => r.status === 'Completed')
+        .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))[0];
+      
+      return completed || null;
     },
     [clientRequests]
   );
@@ -406,6 +417,18 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       case 'acompanhar':
         return activeRequest ? (
           <ScrollView style={styles.timelineContainer}>
+            {activeRequest.status === 'Completed' && (
+              <View style={styles.completedBanner}>
+                <Text style={styles.completedBannerIcon}>🎉</Text>
+                <Text style={styles.completedBannerTitle}>Projeto Concluído!</Text>
+                <Text style={styles.completedBannerText}>
+                  Este projeto foi finalizado com sucesso.
+                </Text>
+                <Text style={styles.completedBannerHint}>
+                  💡 Para consultar o histórico completo deste serviço, acesse a aba "Perfil" e clique no projeto desejado.
+                </Text>
+              </View>
+            )}
             <Timeline
               request={activeRequest}
               statusConfig={requestController.getStatusConfig()}
@@ -424,6 +447,43 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         );
 
       case 'perfil':
+        if (selectedHistoryRequest) {
+          // Visualização detalhada do histórico
+          return (
+            <View style={styles.historyDetailContainer}>
+              <View style={styles.historyDetailHeader}>
+                <TouchableOpacity 
+                  style={styles.historyBackButton}
+                  onPress={() => setSelectedHistoryRequest(null)}
+                >
+                  <Text style={styles.historyBackButtonText}>← Voltar ao Perfil</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.historyDetailContent}>
+                <View style={styles.historyDetailTitle}>
+                  <Text style={styles.historyDetailTitleText}>
+                    {selectedHistoryRequest.site} - Plano {selectedHistoryRequest.plan}
+                  </Text>
+                  <View style={[
+                    styles.historyDetailStatusBadge,
+                    selectedHistoryRequest.status === 'Completed' && styles.historyDetailStatusBadgeCompleted
+                  ]}>
+                    <Text style={styles.historyDetailStatusText}>
+                      {requestController.getStatusConfig().map[selectedHistoryRequest.status]}
+                    </Text>
+                  </View>
+                </View>
+                <Timeline
+                  request={selectedHistoryRequest}
+                  statusConfig={requestController.getStatusConfig()}
+                  onApprove={handleApproveQuote}
+                  onSignContract={handleSignContract}
+                />
+              </ScrollView>
+            </View>
+          );
+        }
+
         return (
           <ScrollView style={styles.content}>
             <View style={styles.profileCard}>
@@ -465,14 +525,23 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             </View>
 
             <Text style={styles.historyTitle}>📋 Histórico de Planos</Text>
+            <Text style={styles.historyHint}>💡 Toque em um projeto para ver os detalhes completos</Text>
             {clientRequests.length > 0 ? (
               clientRequests.map((req) => (
-                <View key={req.id} style={styles.historyCard}>
-                  <Text style={styles.historyProject}>{req.site} - Plano {req.plan}</Text>
-                  <Text style={styles.historyStatus}>
-                    Status: {requestController.getStatusConfig().map[req.status]}
-                  </Text>
-                </View>
+                <TouchableOpacity 
+                  key={req.id} 
+                  style={styles.historyCard}
+                  onPress={() => setSelectedHistoryRequest(req)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.historyCardContent}>
+                    <Text style={styles.historyProject}>{req.site} - Plano {req.plan}</Text>
+                    <Text style={styles.historyStatus}>
+                      Status: {requestController.getStatusConfig().map[req.status]}
+                    </Text>
+                  </View>
+                  <Text style={styles.historyArrow}>→</Text>
+                </TouchableOpacity>
               ))
             ) : (
               <Text style={styles.historyEmpty}>Nenhum plano contratado ainda.</Text>
@@ -748,6 +817,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
+    marginBottom: 8,
+  },
+  historyHint: {
+    fontSize: 12,
+    color: '#6366f1',
     marginBottom: 12,
   },
   historyCard: {
@@ -760,6 +834,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  historyCardContent: {
+    flex: 1,
   },
   historyProject: {
     fontSize: 16,
@@ -771,11 +851,100 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
+  historyArrow: {
+    fontSize: 20,
+    color: '#9ca3af',
+    marginLeft: 12,
+  },
   historyEmpty: {
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  historyDetailContainer: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  historyDetailHeader: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  historyBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyBackButtonText: {
+    color: '#6366f1',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  historyDetailContent: {
+    flex: 1,
+  },
+  historyDetailTitle: {
+    backgroundColor: 'white',
+    padding: 20,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  historyDetailTitleText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 12,
+  },
+  historyDetailStatusBadge: {
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  historyDetailStatusBadgeCompleted: {
+    backgroundColor: '#d1fae5',
+  },
+  historyDetailStatusText: {
+    color: '#6366f1',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  completedBanner: {
+    backgroundColor: '#d1fae5',
+    borderRadius: 16,
+    padding: 20,
+    margin: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  completedBannerIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  completedBannerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#059669',
+    marginBottom: 8,
+  },
+  completedBannerText: {
+    fontSize: 16,
+    color: '#047857',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  completedBannerHint: {
+    fontSize: 14,
+    color: '#065f46',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   tabBar: {
     flexDirection: 'row',
