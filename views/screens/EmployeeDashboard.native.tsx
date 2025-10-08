@@ -3,9 +3,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput } from 'react-native';
-import { RequestController } from '../../controllers';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput, Image, Modal } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { RequestController, ImageController } from '../../controllers';
 import { StarRating } from '../components/StarRating.native';
+import { ImageUtils } from '../../utils/ImageUtils';
 import { type User, type AccessibilityRequest } from '../../models';
 
 interface EmployeeDashboardProps {
@@ -17,8 +19,12 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   user,
   onLogout,
 }) => {
+  const [activeTab, setActiveTab] = useState('solicitacoes');
   const [selectedRequest, setSelectedRequest] = useState<AccessibilityRequest | null>(null);
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
   const [requestController] = useState(() => RequestController.getInstance());
+  const [imageController] = useState(() => ImageController.getInstance());
   const [requestState, setRequestState] = useState(requestController.getState());
   const [uploadingFileFor, setUploadingFileFor] = useState<{ type: 'quote' | 'contract'; request: AccessibilityRequest } | null>(null);
   const [fileName, setFileName] = useState('');
@@ -29,6 +35,28 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
       unsubscribeRequest();
     };
   }, [requestController]);
+
+  // Carregar foto do usuário
+  useEffect(() => {
+    const loadUserPhoto = async () => {
+      if (user.id) {
+        try {
+          console.log(`[EmployeeDashboard] Buscando foto local para usuário ${user.id}`);
+          const result = await imageController.getImagesByUser(user.id);
+          if (result.success && result.data) {
+            const profilePhoto = result.data.find((img: any) => img.category === 'user_photo');
+            if (profilePhoto) {
+              console.log(`[EmployeeDashboard] Foto local encontrada: ${profilePhoto.file_path}`);
+              setUserPhoto(profilePhoto.file_path);
+            }
+          }
+        } catch (error) {
+          console.error('[EmployeeDashboard] Erro ao carregar foto:', error);
+        }
+      }
+    };
+    loadUserPhoto();
+  }, [user.id, imageController]);
 
   const statusConfig = requestController.getStatusConfig();
 
@@ -107,6 +135,183 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     }
   };
 
+  const handleViewPhoto = () => {
+    if (userPhoto) {
+      setIsPhotoModalVisible(true);
+    } else {
+      handlePhotoUpload();
+    }
+  };
+
+  const handlePhotoUpload = async () => {
+    try {
+      Alert.alert(
+        'Selecionar Foto',
+        'Escolha como deseja adicionar sua foto de perfil',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+          {
+            text: 'Galeria',
+            onPress: () => selectImageFromGallery(),
+          },
+          {
+            text: 'Câmera',
+            onPress: () => selectImageFromCamera(),
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('Error showing photo options:', error);
+      Alert.alert('Erro', 'Não foi possível abrir as opções de foto');
+    }
+  };
+
+  const selectImageFromGallery = async () => {
+    try {
+      console.log(`[EmployeeDashboard] Solicitando permissão da galeria`);
+      
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        console.log(`[EmployeeDashboard] Permissão da galeria negada`);
+        Alert.alert('Permissão necessária', 'É necessário permitir o acesso à galeria para selecionar fotos.');
+        return;
+      }
+
+      console.log(`[EmployeeDashboard] Abrindo galeria`);
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      });
+
+      console.log(`[EmployeeDashboard] Resultado da galeria:`, { canceled: result.canceled, hasAssets: !!result.assets });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log(`[EmployeeDashboard] Imagem selecionada: ${result.assets[0].uri}`);
+        await uploadSelectedImage(result.assets[0].uri);
+      } else {
+        console.log(`[EmployeeDashboard] Seleção cancelada ou sem assets`);
+      }
+    } catch (error) {
+      console.error('[EmployeeDashboard] Error selecting image from gallery:', error);
+      Alert.alert('Erro', 'Não foi possível acessar a galeria');
+    }
+  };
+
+  const selectImageFromCamera = async () => {
+    try {
+      console.log(`[EmployeeDashboard] Solicitando permissão da câmera`);
+      
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        console.log(`[EmployeeDashboard] Permissão da câmera negada`);
+        Alert.alert('Permissão necessária', 'É necessário permitir o acesso à câmera para tirar fotos.');
+        return;
+      }
+
+      console.log(`[EmployeeDashboard] Abrindo câmera`);
+      
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      });
+
+      console.log(`[EmployeeDashboard] Resultado da câmera:`, { canceled: result.canceled, hasAssets: !!result.assets });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log(`[EmployeeDashboard] Foto capturada: ${result.assets[0].uri}`);
+        await uploadSelectedImage(result.assets[0].uri);
+      } else {
+        console.log(`[EmployeeDashboard] Captura cancelada ou sem assets`);
+      }
+    } catch (error) {
+      console.error('[EmployeeDashboard] Error selecting image from camera:', error);
+      Alert.alert('Erro', 'Não foi possível acessar a câmera');
+    }
+  };
+
+  const uploadSelectedImage = async (imageUri: string) => {
+    try {
+      console.log(`[EmployeeDashboard] Iniciando upload da foto: ${imageUri}`);
+      
+      if (!user.id) {
+        console.error(`[EmployeeDashboard] ID do usuário não encontrado`);
+        Alert.alert('Erro', 'ID do usuário não encontrado');
+        return;
+      }
+
+      console.log(`[EmployeeDashboard] Gerando nome único para arquivo`);
+      const filename = ImageUtils.generateUniqueFilename('profile_photo', 'user_photo');
+      console.log(`[EmployeeDashboard] Nome do arquivo: ${filename}`);
+      
+      const fileResult = await ImageUtils.copyToDocuments(imageUri, filename);
+      
+      if (!fileResult.success || !fileResult.data) {
+        console.error(`[EmployeeDashboard] Falha ao criar arquivo: ${fileResult.error}`);
+        Alert.alert('Erro', 'Falha ao criar arquivo da imagem');
+        return;
+      }
+
+      console.log(`[EmployeeDashboard] Arquivo criado: ${fileResult.data}`);
+
+      console.log(`[EmployeeDashboard] Obtendo informações do arquivo`);
+      const fileInfo = await ImageUtils.getImageInfo(fileResult.data);
+      if (!fileInfo.success || !fileInfo.data) {
+        console.error(`[EmployeeDashboard] Falha ao obter informações: ${fileInfo.error}`);
+        Alert.alert('Erro', 'Falha ao obter informações do arquivo');
+        return;
+      }
+
+      console.log(`[EmployeeDashboard] Informações do arquivo:`, fileInfo.data);
+
+      console.log(`[EmployeeDashboard] Fazendo upload da foto para usuário ${user.id}`);
+      
+      const uploadResult = await imageController.uploadImage(
+        fileResult.data,
+        'user_photo',
+        user.id,
+        filename,
+        false
+      ).catch((uploadError) => {
+        console.error(`[EmployeeDashboard] Exceção no upload:`, uploadError);
+        return { success: false, error: uploadError.message || 'Erro desconhecido no upload', data: undefined };
+      });
+
+      if (!uploadResult.success || !uploadResult.data) {
+        console.error(`[EmployeeDashboard] Falha no upload: ${uploadResult.error}`);
+        Alert.alert('Erro', `Falha no upload: ${uploadResult.error || 'Erro desconhecido'}`);
+        return;
+      }
+
+      console.log(`[EmployeeDashboard] Upload realizado com sucesso`);
+
+      try {
+        setUserPhoto(fileResult.data);
+        console.log(`[EmployeeDashboard] Estado da foto atualizado`);
+      } catch (stateError) {
+        console.error(`[EmployeeDashboard] Erro ao atualizar estado:`, stateError);
+      }
+      
+      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
+
+    } catch (error) {
+      console.error('[EmployeeDashboard] Error uploading selected image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      Alert.alert('Erro', `Erro ao fazer upload da foto: ${errorMessage}`);
+    }
+  };
+
   const getActionButton = (request: AccessibilityRequest) => {
     const { status } = request;
 
@@ -170,28 +375,54 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     );
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </Text>
+  const renderContent = () => {
+    if (activeTab === 'perfil') {
+      return (
+        <ScrollView style={styles.content}>
+          <View style={styles.profileCard}>
+            <TouchableOpacity 
+              style={styles.profileAvatarContainer}
+              onPress={handleViewPhoto}
+              activeOpacity={0.8}
+            >
+              {userPhoto ? (
+                <Image source={{ uri: userPhoto }} style={styles.profileAvatarImage} />
+              ) : (
+                <View style={styles.profileAvatar}>
+                  <Text style={styles.profileAvatarText}>
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.photoUploadOverlay}>
+                <Text style={styles.photoUploadIcon}>
+                  {userPhoto ? '🔍' : '➕'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            <Text style={styles.profileName}>{user?.name || 'N/A'}</Text>
+            <Text style={styles.profileEmail}>{user?.email || 'N/A'}</Text>
+            <View style={styles.profileBadge}>
+              <Text style={styles.profileBadgeText}>Funcionário</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.photoButton}
+              onPress={handlePhotoUpload}
+            >
+              <Text style={styles.photoButtonText}>
+                {userPhoto ? 'Alterar Foto' : 'Adicionar Foto'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.headerInfo}>
-            <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋</Text>
-            <Text style={styles.email}>{user?.email || 'email@example.com'}</Text>
-          </View>
-        </View>
-        <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutButtonText}>Sair</Text>
-        </TouchableOpacity>
-      </View>
+        </ScrollView>
+      );
+    }
 
-      {/* Content */}
-      {selectedRequest ? (
+    // Tab de Solicitações
+    if (selectedRequest) {
+      return (
         // Detail view
         <ScrollView style={styles.detailContainer}>
           <TouchableOpacity
@@ -334,7 +565,109 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             </View>
           )}
         </ScrollView>
+      );
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity 
+            style={styles.avatar}
+            onPress={handleViewPhoto}
+            activeOpacity={0.8}
+          >
+            {userPhoto ? (
+              <Image source={{ uri: userPhoto }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </Text>
+            )}
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Usuário'}! 👋</Text>
+            <Text style={styles.email}>{user?.email || 'email@example.com'}</Text>
+          </View>
+        </View>
+        <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
+          <Text style={styles.logoutButtonText}>Sair</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {renderContent()}
+
+      {/* Navigation footer - só mostra se não estiver em detalhes */}
+      {!selectedRequest && (
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'solicitacoes' && styles.tabActive]}
+            onPress={() => setActiveTab('solicitacoes')}
+          >
+            <Text style={[styles.tabIcon, activeTab === 'solicitacoes' && styles.tabIconActive]}>
+              📋
+            </Text>
+            <Text style={[styles.tabLabel, activeTab === 'solicitacoes' && styles.tabLabelActive]}>
+              Solicitações
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'perfil' && styles.tabActive]}
+            onPress={() => setActiveTab('perfil')}
+          >
+            <Text style={[styles.tabIcon, activeTab === 'perfil' && styles.tabIconActive]}>
+              👤
+            </Text>
+            <Text style={[styles.tabLabel, activeTab === 'perfil' && styles.tabLabelActive]}>
+              Perfil
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
+
+      {/* Modal de visualização da foto em tela cheia */}
+      <Modal
+        visible={isPhotoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsPhotoModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.modalCloseButton}
+            onPress={() => setIsPhotoModalVisible(false)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.modalCloseButtonText}>✕</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.modalContent}>
+            {userPhoto && (
+              <Image 
+                source={{ uri: userPhoto }} 
+                style={styles.modalImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={() => {
+                setIsPhotoModalVisible(false);
+                handlePhotoUpload();
+              }}
+            >
+              <Text style={styles.modalButtonText}>📷 Alterar Foto</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -366,6 +699,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   avatarText: {
     color: 'white',
@@ -689,5 +1028,190 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
     fontWeight: '600',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  tabActive: {
+    borderTopWidth: 3,
+    borderTopColor: '#6366f1',
+  },
+  tabIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+    opacity: 0.6,
+  },
+  tabIconActive: {
+    opacity: 1,
+  },
+  tabLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  tabLabelActive: {
+    color: '#6366f1',
+    fontWeight: '700',
+  },
+  profileCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  profileAvatarContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  profileAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#6366f1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileAvatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f3f4f6',
+  },
+  profileAvatarText: {
+    color: 'white',
+    fontSize: 36,
+    fontWeight: 'bold',
+  },
+  photoUploadOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#6366f1',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  photoUploadIcon: {
+    fontSize: 16,
+    color: 'white',
+  },
+  profileName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  profileBadge: {
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  profileBadgeText: {
+    color: '#6366f1',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  photoButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  photoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 80,
+  },
+  modalImage: {
+    width: '90%',
+    height: '90%',
+  },
+  modalActions: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalButton: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
