@@ -215,6 +215,53 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
                   <Text style={styles.waitingText}>⏳ Aguardando orçamento do funcionário...</Text>
                 )}
 
+                {/* Contact options for Quote step */}
+                {step === 'Orçamento' && status === 'Quote Sent' && (
+                  <View style={styles.contactCard}>
+                    <Text style={styles.contactTitle}>💬 Dúvidas sobre o orçamento?</Text>
+                    <Text style={styles.contactSubtitle}>Entre em contato para esclarecer ou negociar valores</Text>
+                    <View style={styles.contactButtons}>
+                      <TouchableOpacity 
+                        style={styles.whatsappButton}
+                        onPress={() => {
+                          const phoneNumber = '5511999999999'; // Número da empresa
+                          const message = `Olá! Gostaria de tirar dúvidas sobre o orçamento do projeto ${request.site}`;
+                          const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+                          Linking.openURL(url).catch(() => {
+                            Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Verifique se o aplicativo está instalado.');
+                          });
+                        }}
+                      >
+                        <Text style={styles.whatsappButtonText}>💬 WhatsApp</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={styles.scheduleButton}
+                        onPress={() => {
+                          Alert.alert(
+                            'Agendar Reunião',
+                            'Você será redirecionado para o Calendly para agendar uma reunião com nossa equipe.',
+                            [
+                              { text: 'Cancelar', style: 'cancel' },
+                              {
+                                text: 'Abrir Calendly',
+                                onPress: () => {
+                                  const calendlyUrl = 'https://calendly.com/ada-company';
+                                  Linking.openURL(calendlyUrl).catch(() => {
+                                    Alert.alert('Erro', 'Não foi possível abrir o link.');
+                                  });
+                                }
+                              }
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={styles.scheduleButtonText}>📅 Agendar Reunião</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
                 {step === 'Orçamento' && status === 'Quote Approved' && (
                   <Text style={styles.approvedText}>✅ Orçamento aprovado! Aguardando contrato...</Text>
                 )}
@@ -471,6 +518,23 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   whatsappButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scheduleButton: {
+    flex: 1,
+    backgroundColor: '#6366f1',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  scheduleButtonText: {
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
