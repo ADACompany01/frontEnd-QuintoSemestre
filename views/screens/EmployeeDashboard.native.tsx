@@ -533,40 +533,42 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             )}
           </View>
         </ScrollView>
-      ) : (
-        // List view
-        <ScrollView style={styles.content}>
-          <Text style={styles.sectionTitle}>📋 Solicitações</Text>
-
-          {requestState.requests.length > 0 ? (
-            requestState.requests.map((req) => (
-              <TouchableOpacity
-                key={req.id}
-                style={styles.requestCard}
-                onPress={() => setSelectedRequest(req)}
-              >
-                <View style={styles.requestInfo}>
-                  <Text style={styles.requestClient}>{req.clientName}</Text>
-                  <Text style={styles.requestSite}>{req.site} - Plano {req.plan}</Text>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>
-                      {statusConfig.map[req.status]}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.arrow}>→</Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>Nenhuma solicitação</Text>
-              <Text style={styles.emptyDesc}>Não há solicitações no momento.</Text>
-            </View>
-          )}
-        </ScrollView>
       );
     }
+
+    // List view (padrão quando não está em detalhes)
+    return (
+      <ScrollView style={styles.content}>
+        <Text style={styles.sectionTitle}>📋 Solicitações</Text>
+
+        {requestState.requests.length > 0 ? (
+          requestState.requests.map((req) => (
+            <TouchableOpacity
+              key={req.id}
+              style={styles.requestCard}
+              onPress={() => setSelectedRequest(req)}
+            >
+              <View style={styles.requestInfo}>
+                <Text style={styles.requestClient}>{req.clientName}</Text>
+                <Text style={styles.requestSite}>{req.site} - Plano {req.plan}</Text>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>
+                    {statusConfig.map[req.status]}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.arrow}>→</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📋</Text>
+            <Text style={styles.emptyTitle}>Nenhuma solicitação</Text>
+            <Text style={styles.emptyDesc}>Não há solicitações no momento.</Text>
+          </View>
+        )}
+      </ScrollView>
+    );
   };
 
   return (
