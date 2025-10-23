@@ -72,7 +72,7 @@ export class AuthController {
   /**
    * Reducer para gerenciar mudanças de estado
    */
-  private dispatch(action: AuthAction): void {
+  dispatch(action: AuthAction): void {
     switch (action.type) {
       case 'LOGIN_START':
         this.authState = {
@@ -243,6 +243,13 @@ export class AuthController {
    */
   isLoading(): boolean {
     return this.authState.isLoading;
+  }
+
+  /**
+   * Define usuário como logado (usado após registro bem-sucedido)
+   */
+  setAuthenticatedUser(user: User): void {
+    this.dispatch({ type: 'LOGIN_SUCCESS', user });
   }
 
   /**

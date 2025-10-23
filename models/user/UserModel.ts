@@ -4,11 +4,12 @@
  * Responsabilidades:
  * - Gerenciar dados de usuários (clientes e funcionários)
  * - Validar tipos de usuário
- * - Operações CRUD com SQLite
+ * - Operações CRUD com API do backend (com fallback para SQLite)
  * - Regras de negócio relacionadas a usuários
  */
 
 import { DatabaseService } from '../../services/DatabaseService';
+import ApiService from '../../services/ApiService';
 
 export interface User {
   id?: number;
@@ -36,6 +37,8 @@ export interface UserCreateData {
 
 export class UserModel {
   private static db = DatabaseService.getInstance();
+  private static api = ApiService;
+  private static USE_API = true; // Flag para controlar uso da API
 
   /**
    * Valida credenciais de login
@@ -46,11 +49,41 @@ export class UserModel {
     try {
       const { email, password } = credentials;
       
-      // Validação básica (em produção, senha seria verificada com hash)
+      // Validação básica
       if (!email || !password) {
         return { success: false, error: 'Email e senha são obrigatórios' };
       }
 
+      // Tentar usar a API primeiro
+      if (this.USE_API) {
+        try {
+          console.log('[UserModel] Tentando login via API...');
+          const apiResponse = await this.api.login(email, password);
+          
+          if (apiResponse.success && apiResponse.data) {
+            const userData = apiResponse.data.user;
+            
+            // Mapear campos do backend (português) para frontend (inglês)
+            const user: User = {
+              id: userData.id,
+              type: userData.tipo === 'cliente' ? 'client' : 'employee',
+              name: userData.nome || userData.nome_razao_social || 'Usuário',
+              email: userData.email,
+              photo_path: userData.foto,
+              photo: userData.foto
+            };
+
+            console.log('[UserModel] Login via API bem-sucedido!');
+            console.log('[UserModel] Usuário:', user);
+            return { success: true, data: user };
+          }
+        } catch (apiError) {
+          console.warn('[UserModel] Falha na API, tentando SQLite local...', apiError);
+        }
+      }
+
+      // Fallback para SQLite local
+      console.log('[UserModel] Usando SQLite local...');
       const result = await this.db.getFirst(`
         SELECT id, type, name, email, photo_path FROM users 
         WHERE email = ? AND password = ?
@@ -70,12 +103,12 @@ export class UserModel {
         name: result.data.name,
         email: result.data.email,
         photo_path: result.data.photo_path,
-        photo: result.data.photo_path // Para compatibilidade com código existente
+        photo: result.data.photo_path
       };
 
       return { success: true, data: user };
     } catch (error) {
-      console.error('Error validating login:', error);
+      console.error('[UserModel] Error validating login:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -90,6 +123,18 @@ export class UserModel {
    */
   static async getUserByEmail(email: string): Promise<{ success: boolean; data?: User; error?: string }> {
     try {
+      // Tentar usar a API primeiro
+      if (this.USE_API) {
+        try {
+          // Note: A API do backend não tem endpoint específico para buscar por email
+          // então usamos o fallback local ou podemos implementar no backend depois
+          console.log('[UserModel] Buscando usuário por email via SQLite (API não implementada)');
+        } catch (apiError) {
+          console.warn('[UserModel] Falha na API, usando SQLite local...', apiError);
+        }
+      }
+
+      // Usar SQLite local
       const result = await this.db.getFirst(`
         SELECT id, type, name, email, photo_path FROM users WHERE email = ?
       `, [email]);
@@ -108,12 +153,12 @@ export class UserModel {
         name: result.data.name,
         email: result.data.email,
         photo_path: result.data.photo_path,
-        photo: result.data.photo_path // Para compatibilidade com código existente
+        photo: result.data.photo_path
       };
 
       return { success: true, data: user };
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      console.error('[UserModel] Error getting user by email:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -384,10 +429,25 @@ export class UserModel {
       errors
     };
   }
+
+  /**
+   * Define se deve usar API ou SQLite
+   */
+  static setUseApi(useApi: boolean): void {
+    this.USE_API = useApi;
+    console.log(`[UserModel] Modo de operação: ${useApi ? 'API' : 'SQLite local'}`);
+  }
+
+  /**
+   * Verifica se está usando API
+   */
+  static isUsingApi(): boolean {
+    return this.USE_API;
+  }
 }
 
 // EXPANSÃO FUTURA:
-// - Integração com API real de autenticação
+// - Integração completa com todos os endpoints da API
 // - Sistema de permissões e roles
 // - Gestão de sessões
 // - Recuperação de senha

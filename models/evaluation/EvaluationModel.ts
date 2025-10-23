@@ -3,10 +3,13 @@
  * 
  * Responsabilidades:
  * - Gerenciar dados de avaliações de sites
+ * - Integração com API Lighthouse para avaliação real
  * - Definir critérios WCAG
  * - Calcular pontuações e sugestões de planos
  * - Regras de negócio para avaliações
  */
+
+import ApiService from '../../services/ApiService';
 
 export interface EvaluationIssue {
   id: string;
@@ -35,6 +38,9 @@ export interface AccessibilityPlan {
 }
 
 export class EvaluationModel {
+  private static api = ApiService;
+  private static USE_API = true; // Flag para controlar uso da API
+  
   // Critérios WCAG por nível
   private static readonly WCAG_ITEMS: Record<string, WCAGItem[]> = {
     A: [
@@ -70,11 +76,75 @@ export class EvaluationModel {
   ];
 
   /**
-   * Simula avaliação de um site (mock para desenvolvimento)
+   * Avalia acessibilidade de um site usando Lighthouse API
    * @param siteUrl - URL do site a ser avaliado
    * @returns Promise com resultado da avaliação
    */
   static async evaluateSite(siteUrl: string): Promise<EvaluationResult> {
+    try {
+      // Tentar usar a API primeiro
+      if (this.USE_API) {
+        try {
+          console.log('[EvaluationModel] Avaliando site via API Lighthouse...');
+          const apiResponse = await this.api.analyzeSiteAccessibility(siteUrl);
+
+          if (apiResponse.success && apiResponse.data) {
+            const lighthouseData = apiResponse.data;
+            
+            // Extrair pontuação de acessibilidade (0-1 para 0-100)
+            const score = Math.round((lighthouseData.accessibility || 0) * 100);
+            
+            // Extrair problemas dos audits do Lighthouse
+            const issues: EvaluationIssue[] = [];
+            const audits = lighthouseData.audits || {};
+            
+            // Mapear audits com problemas para issues
+            Object.entries(audits).forEach(([key, audit]: [string, any]) => {
+              if (audit.score !== null && audit.score < 1 && audit.title) {
+                issues.push({
+                  id: key,
+                  text: audit.title,
+                  type: 'issue',
+                  priority: audit.score === 0 ? 5 : Math.ceil((1 - audit.score) * 5)
+                });
+              }
+            });
+
+            // Limitar a 10 issues mais críticos
+            const topIssues = issues
+              .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+              .slice(0, 10);
+
+            console.log(`[EvaluationModel] Avaliação concluída: ${score}% de acessibilidade`);
+            
+            return {
+              score,
+              issues: topIssues.length > 0 ? topIssues : this.getRandomIssues(),
+              siteUrl,
+              evaluatedAt: new Date()
+            };
+          }
+        } catch (apiError) {
+          console.warn('[EvaluationModel] Falha na API, usando avaliação simulada...', apiError);
+        }
+      }
+
+      // Fallback: Simular avaliação
+      return this.simulateEvaluation(siteUrl);
+    } catch (error) {
+      console.error('[EvaluationModel] Erro ao avaliar site:', error);
+      return this.simulateEvaluation(siteUrl);
+    }
+  }
+
+  /**
+   * Simula avaliação de um site (fallback)
+   * @param siteUrl - URL do site a ser avaliado
+   * @returns Resultado da avaliação simulada
+   */
+  private static async simulateEvaluation(siteUrl: string): Promise<EvaluationResult> {
+    console.log('[EvaluationModel] Usando avaliação simulada...');
+    
     // Simula delay de rede
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -82,9 +152,7 @@ export class EvaluationModel {
     const score = Math.floor(Math.random() * (95 - 30 + 1)) + 30;
     
     // Seleciona problemas aleatórios
-    const numIssues = Math.floor(Math.random() * 4) + 1; // 1-4 problemas
-    const shuffledIssues = [...this.COMMON_ISSUES].sort(() => 0.5 - Math.random());
-    const selectedIssues = shuffledIssues.slice(0, numIssues);
+    const selectedIssues = this.getRandomIssues();
 
     return {
       score,
@@ -92,6 +160,15 @@ export class EvaluationModel {
       siteUrl,
       evaluatedAt: new Date()
     };
+  }
+
+  /**
+   * Obtém problemas aleatórios para simulação
+   */
+  private static getRandomIssues(): EvaluationIssue[] {
+    const numIssues = Math.floor(Math.random() * 4) + 1; // 1-4 problemas
+    const shuffledIssues = [...this.COMMON_ISSUES].sort(() => 0.5 - Math.random());
+    return shuffledIssues.slice(0, numIssues);
   }
 
   /**
@@ -222,6 +299,21 @@ export class EvaluationModel {
       'AAA': 'Nível avançado de acessibilidade - requisitos máximos'
     };
     return descriptions[level];
+  }
+
+  /**
+   * Define se deve usar API ou avaliação simulada
+   */
+  static setUseApi(useApi: boolean): void {
+    this.USE_API = useApi;
+    console.log(`[EvaluationModel] Modo de operação: ${useApi ? 'API Lighthouse' : 'Avaliação simulada'}`);
+  }
+
+  /**
+   * Verifica se está usando API
+   */
+  static isUsingApi(): boolean {
+    return this.USE_API;
   }
 }
 

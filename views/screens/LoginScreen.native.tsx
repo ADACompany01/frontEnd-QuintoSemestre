@@ -25,11 +25,13 @@ import { AuthController } from '../../controllers';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: any) => void;
+  onRegisterPress?: () => void;
   className?: string;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLoginSuccess,
+  onRegisterPress,
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -157,6 +159,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OU</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Register button */}
+            <TouchableOpacity
+              style={styles.registerButton}
+              onPress={onRegisterPress}
+              disabled={authState.isLoading}
+            >
+              <Text style={styles.registerButtonText}>
+                ✨ Criar Nova Conta
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -301,6 +321,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6366f1',
     fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '600',
+  },
+  registerButton: {
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  registerButtonText: {
+    color: '#6366f1',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 

@@ -2,11 +2,14 @@
  * RequestModel - Modelo de dados para solicitações de acessibilidade
  * 
  * Responsabilidades:
- * - Gerenciar dados de solicitações
+ * - Gerenciar dados de solicitações (orçamentos e contratos)
  * - Controlar fluxo de status das solicitações
  * - Validar transições de status
+ * - Integração com API do backend
  * - Regras de negócio para solicitações
  */
+
+import ApiService from '../../services/ApiService';
 
 export interface ChecklistItem {
   text: string;
@@ -56,6 +59,9 @@ export interface StatusConfig {
 }
 
 export class RequestModel {
+  private static api = ApiService;
+  private static USE_API = true; // Flag para controlar uso da API
+  
   // Configuração de status das solicitações
   private static readonly STATUS_CONFIG: StatusConfig = {
     steps: ["Solicitação enviada", "Orçamento", "Contrato", "Desenvolvimento", "Finalizado"],
@@ -162,6 +168,161 @@ export class RequestModel {
    */
   static getInitialRequests(): AccessibilityRequest[] {
     return [...this.initialRequests];
+  }
+
+  /**
+   * Busca todas as solicitações (orçamentos e contratos) da API
+   * @returns Promise com lista de solicitações
+   */
+  static async getAllRequests(): Promise<{ success: boolean; data?: AccessibilityRequest[]; error?: string }> {
+    try {
+      if (!this.USE_API) {
+        return { success: true, data: this.getInitialRequests() };
+      }
+
+      console.log('[RequestModel] Buscando solicitações via API...');
+
+      // Buscar orçamentos e contratos em paralelo
+      const [budgetsResponse, contractsResponse] = await Promise.all([
+        this.api.getBudgets(),
+        this.api.getContracts()
+      ]);
+
+      if (!budgetsResponse.success && !contractsResponse.success) {
+        console.warn('[RequestModel] Falha na API, usando dados mock...');
+        return { success: true, data: this.getInitialRequests() };
+      }
+
+      // Combinar orçamentos e contratos em solicitações
+      const requests: AccessibilityRequest[] = [];
+
+      // Processar orçamentos
+      if (budgetsResponse.success && budgetsResponse.data) {
+        budgetsResponse.data.forEach((budget: any) => {
+          requests.push({
+            id: budget.id,
+            clientName: budget.cliente?.nome_razao_social || 'Cliente Desconhecido',
+            site: budget.site || '',
+            plan: this.mapPlanFromBackend(budget.pacote?.nivel),
+            status: 'Quote Sent',
+            quoteFile: budget.arquivo_orcamento ? {
+              name: budget.arquivo_orcamento.split('/').pop() || 'orcamento.pdf',
+              url: budget.arquivo_orcamento
+            } : undefined,
+            selectedIssues: [],
+            createdAt: budget.created_at ? new Date(budget.created_at) : new Date(),
+            updatedAt: budget.updated_at ? new Date(budget.updated_at) : new Date()
+          });
+        });
+      }
+
+      // Processar contratos
+      if (contractsResponse.success && contractsResponse.data) {
+        contractsResponse.data.forEach((contract: any) => {
+          // Verificar se já existe um orçamento para este cliente
+          const existingIndex = requests.findIndex(r => r.id === contract.orcamento_id);
+          
+          if (existingIndex >= 0) {
+            // Atualizar solicitação existente com dados do contrato
+            requests[existingIndex] = {
+              ...requests[existingIndex],
+              status: contract.assinado ? 'Contract Signed' : 'Contract Sent',
+              contractFile: contract.arquivo_contrato ? {
+                name: contract.arquivo_contrato.split('/').pop() || 'contrato.pdf',
+                url: contract.arquivo_contrato
+              } : undefined,
+              contractSignedUrl: contract.contrato_assinado_url
+            };
+          } else {
+            // Criar nova solicitação a partir do contrato
+            requests.push({
+              id: contract.id,
+              clientName: contract.cliente?.nome_razao_social || 'Cliente Desconhecido',
+              site: contract.site || '',
+              plan: 'AA',
+              status: contract.assinado ? 'Contract Signed' : 'Contract Sent',
+              contractFile: contract.arquivo_contrato ? {
+                name: contract.arquivo_contrato.split('/').pop() || 'contrato.pdf',
+                url: contract.arquivo_contrato
+              } : undefined,
+              selectedIssues: [],
+              createdAt: contract.created_at ? new Date(contract.created_at) : new Date(),
+              updatedAt: contract.updated_at ? new Date(contract.updated_at) : new Date()
+            });
+          }
+        });
+      }
+
+      console.log(`[RequestModel] ${requests.length} solicitações carregadas da API`);
+      return { success: true, data: requests };
+    } catch (error) {
+      console.error('[RequestModel] Erro ao buscar solicitações:', error);
+      // Fallback para dados mock
+      return { success: true, data: this.getInitialRequests() };
+    }
+  }
+
+  /**
+   * Mapeia plano do backend para o formato do frontend
+   */
+  private static mapPlanFromBackend(nivel?: string): 'A' | 'AA' | 'AAA' {
+    if (!nivel) return 'AA';
+    const upperNivel = nivel.toUpperCase();
+    if (upperNivel === 'A' || upperNivel === 'AA' || upperNivel === 'AAA') {
+      return upperNivel as 'A' | 'AA' | 'AAA';
+    }
+    return 'AA';
+  }
+
+  /**
+   * Cria novo orçamento via API
+   */
+  static async createBudget(budgetData: {
+    cliente_id: number;
+    pacote_id: number;
+    valor: number;
+    observacoes?: string;
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      if (!this.USE_API) {
+        return { success: false, error: 'API desabilitada' };
+      }
+
+      console.log('[RequestModel] Criando orçamento via API...');
+      return await this.api.createBudget(budgetData);
+    } catch (error) {
+      console.error('[RequestModel] Erro ao criar orçamento:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      };
+    }
+  }
+
+  /**
+   * Cria novo contrato via API
+   */
+  static async createContract(contractData: {
+    cliente_id: number;
+    orcamento_id: number;
+    data_inicio: string;
+    data_fim: string;
+    valor: number;
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      if (!this.USE_API) {
+        return { success: false, error: 'API desabilitada' };
+      }
+
+      console.log('[RequestModel] Criando contrato via API...');
+      return await this.api.createContract(contractData);
+    } catch (error) {
+      console.error('[RequestModel] Erro ao criar contrato:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      };
+    }
   }
 
   /**
@@ -331,6 +492,21 @@ export class RequestModel {
       'Done': 'Concluído'
     };
     return labels[status];
+  }
+
+  /**
+   * Define se deve usar API ou dados mock
+   */
+  static setUseApi(useApi: boolean): void {
+    this.USE_API = useApi;
+    console.log(`[RequestModel] Modo de operação: ${useApi ? 'API' : 'Dados mock'}`);
+  }
+
+  /**
+   * Verifica se está usando API
+   */
+  static isUsingApi(): boolean {
+    return this.USE_API;
   }
 }
 

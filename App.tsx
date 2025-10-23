@@ -12,14 +12,17 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthController, ImageController } from './controllers';
-import { LoginScreen, ClientDashboard, EmployeeDashboard } from './views';
+import { LoginScreen, RegisterScreen, ClientDashboard, EmployeeDashboard } from './views';
 import { type User } from './models';
+
+type Screen = 'login' | 'register';
 
 const App: React.FC = () => {
   const [authController] = useState(() => AuthController.getInstance());
   const [imageController] = useState(() => ImageController.getInstance());
   const [authState, setAuthState] = useState(authController.getAuthState());
   const [isInitialized, setIsInitialized] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<Screen>('login');
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -47,14 +50,41 @@ const App: React.FC = () => {
 
   const handleLoginSuccess = (user: User) => {
     console.log('User logged in successfully:', user.name);
+    // Não precisa fazer nada aqui - o AuthController já atualizou o estado
+    // O renderContent vai detectar isAuthenticated=true e mostrar o dashboard automaticamente
+  };
+
+  const handleRegisterSuccess = (user: User) => {
+    console.log('User registered successfully:', user);
+    // O token já foi configurado pelo ApiService durante o registro
+    // Agora marcar usuário como autenticado no AuthController
+    authController.dispatch({ type: 'LOGIN_SUCCESS', user });
+    console.log('Usuário autenticado após registro!');
+    // renderContent vai detectar automaticamente e mostrar o dashboard
   };
 
   const handleLogout = () => {
     authController.logout();
+    setCurrentScreen('login');
+  };
+
+  const handleRegisterPress = () => {
+    setCurrentScreen('register');
+  };
+
+  const handleBackToLogin = () => {
+    setCurrentScreen('login');
   };
 
   const renderContent = () => {
     try {
+      console.log('[App] renderContent - authState:', {
+        isAuthenticated: authState.isAuthenticated,
+        hasUser: !!authState.currentUser,
+        userName: authState.currentUser?.name,
+        userType: authState.currentUser?.type,
+      });
+
       // Mostrar loading enquanto inicializa
       if (!isInitialized) {
         return (
@@ -79,7 +109,20 @@ const App: React.FC = () => {
       }
 
       if (!authState.isAuthenticated || !authState.currentUser) {
-        return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+        if (currentScreen === 'register') {
+          return (
+            <RegisterScreen 
+              onRegisterSuccess={handleRegisterSuccess}
+              onBackPress={handleBackToLogin}
+            />
+          );
+        }
+        return (
+          <LoginScreen 
+            onLoginSuccess={handleLoginSuccess}
+            onRegisterPress={handleRegisterPress}
+          />
+        );
       }
 
       const user = authState.currentUser;

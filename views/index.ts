@@ -13,6 +13,7 @@ export * from './components/Icons.native';
 
 // Screens
 export { LoginScreen } from './screens/LoginScreen.native';
+export { RegisterScreen } from './screens/RegisterScreen.native';
 export { ClientDashboard } from './screens/ClientDashboard.native';
 export { EmployeeDashboard } from './screens/EmployeeDashboard.native';
 export { EvaluationScreen } from './screens/EvaluationScreen.native';
