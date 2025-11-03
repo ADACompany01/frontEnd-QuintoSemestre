@@ -344,16 +344,9 @@ Esta seção apresenta os **20 riscos de segurança identificados** através de 
 - **Ação:** Usar AWS IAM roles ou variáveis de ambiente
 - **Responsável:** DevOps
 
-#### R010 - Arquivo .env Não Existe
-- **Risco:** 40 (Impacto: 8 × Probabilidade: 5)
-- **Status:** ⏳ Pendente
-- **Descrição:** Projeto sem arquivo `.env` configurado pode expor secrets
-- **Ação:** Criar `.env` e `.env.example` com documentação
-- **Responsável:** DevOps
-
 ### 🟢 Riscos Médios
 
-#### R011 - Token JWT Armazenado Apenas em Memória
+#### R010 - Token JWT Armazenado Apenas em Memória
 - **Risco:** 36 (Impacto: 6 × Probabilidade: 6)
 - **Status:** 🔄 Em Mitigação
 - **Descrição:** `ApiService` armazena token em memória perdendo sessão ao recarregar
@@ -361,7 +354,7 @@ Esta seção apresenta os **20 riscos de segurança identificados** através de 
 - **Ação:** Implementar SecureStore do Expo para persistência
 - **Responsável:** Frontend Lead
 
-#### R012 - Validação de Senha Fraca
+#### R011 - Validação de Senha Fraca
 - **Risco:** 35 (Impacto: 7 × Probabilidade: 5)
 - **Status:** ⏳ Pendente
 - **Descrição:** CreateClienteDto exige apenas 6 caracteres sem requisitos de complexidade
@@ -369,37 +362,15 @@ Esta seção apresenta os **20 riscos de segurança identificados** através de 
 - **Ação:** Adicionar validação de complexidade (maiúscula, minúscula, número)
 - **Responsável:** Backend Lead
 
-#### R013 - Logs Sensíveis Expostos no Console
+#### R012 - Logs Sensíveis Expostos no Console
 - **Risco:** 36 (Impacto: 6 × Probabilidade: 6)
 - **Status:** ⏳ Pendente
 - **Descrição:** ApiService e componentes expõem tokens e dados sensíveis via console.log
 - **Ação:** Remover console.log de produção, usar Logger adequado
 - **Responsável:** Ambos (Backend + Frontend)
 
-#### R014-R020 - Outros Riscos Médios e Baixos
+#### R013-R019 - Outros Riscos Médios e Baixos
 Ver arquivo completo da matriz: `Modelo_Matriz_de_Riscos_SI.csv`
-
-### 📄 Matriz Completa
-
-A matriz de riscos completa com todos os 20 riscos identificados está disponível em:
-
-**📊 [Ver Matriz de Riscos (CSV)](./Modelo_Matriz_de_Riscos_SI.csv)** - Clique para visualizar no GitHub
-
-> 💡 **Dica:** O GitHub renderiza arquivos CSV como tabelas interativas que você pode ordenar e filtrar!
-
-**Estrutura da Matriz:**
-- Vulnerabilidade
-- Tratamento (Pendente, Em mitigação, Mitigado, Aceito)
-- Ação necessária
-- Responsável
-- Código (R001-R020)
-- Descrição detalhada
-- Impacto (0-10)
-- Probabilidade (0-10)
-- Nível de Risco (Impacto × Probabilidade)
-- Classificação
-
----
 
 ## 🚀 Como Executar
 
