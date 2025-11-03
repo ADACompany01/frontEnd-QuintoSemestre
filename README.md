@@ -12,6 +12,7 @@ Uma aplicação **React Native** desenvolvida com **Expo** para avaliação e ge
 ## 📋 Sumário
 
 - [Arquitetura MVC](#-arquitetura-mvc)
+- [Infraestrutura e Arquitetura AWS](#-infraestrutura-e-arquitetura-aws)
 - [Requisitos Funcionais](#-requisitos-funcionais)
 - [Requisitos Não Funcionais](#-requisitos-não-funcionais)
 - [Matriz de Riscos de Segurança](#-matriz-de-riscos-de-segurança)
@@ -85,6 +86,55 @@ O projeto foi refatorado para seguir o padrão MVC, organizando o código em cam
 ├── tsconfig.json              # Configuração TypeScript
 └── package.json               # Dependências e scripts
 ```
+
+---
+
+## ☁️ Infraestrutura e Arquitetura AWS
+
+O projeto utiliza uma arquitetura moderna baseada em serviços AWS para garantir escalabilidade, segurança e disponibilidade.
+
+### 📊 Diagrama de Arquitetura
+
+![Diagrama de Infraestrutura AWS](./assets/DiagramaAdaCompany.drawio.png)
+
+### 🏗️ Componentes da Infraestrutura
+
+#### **Frontend (React Native + Expo)**
+- Aplicativo mobile multiplataforma
+- Comunicação via HTTPS com backend
+- Banco SQLite local para cache
+- Sincronização em tempo real
+
+#### **Backend API (NestJS)**
+- API RESTful com documentação Swagger
+- Autenticação JWT
+- Validação de dados com class-validator
+- Logging centralizado
+
+#### **Banco de Dados Relacional (PostgreSQL)**
+- Armazenamento de dados estruturados
+- Tabelas: Usuários, Clientes, Funcionários, Contratos, Orçamentos
+- Backups automáticos
+- Replicação para alta disponibilidade
+
+#### **Banco NoSQL (DynamoDB - AWS)**
+- Sistema de logs da aplicação
+- Alta performance para escritas
+- Escalabilidade automática
+- Time-to-Live (TTL) para limpeza automática
+
+#### **Serviços AWS Utilizados**
+- 🔐 **AWS IAM**: Gerenciamento de acesso e permissões
+- 📊 **DynamoDB**: Armazenamento de logs NoSQL
+- 🌐 **Route 53** (planejado): DNS e roteamento
+- 🔒 **AWS Secrets Manager** (planejado): Gestão segura de credenciais
+
+### 🔄 Fluxo de Dados
+
+1. **Cliente Mobile** → Requisição HTTPS → **API Backend**
+2. **API Backend** → Consulta/Atualiza → **PostgreSQL**
+3. **API Backend** → Registra logs → **DynamoDB**
+4. **PostgreSQL** ← Sincronização ← **SQLite Local** (modo offline)
 
 ---
 
