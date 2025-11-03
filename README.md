@@ -91,167 +91,26 @@ O projeto foi refatorado para seguir o padrão MVC, organizando o código em cam
 ## 📋 Requisitos Funcionais
 
 ### RF01 - Autenticação de Usuários
-**Prioridade:** Alta  
-**Descrição:** O sistema deve permitir login e cadastro de usuários (clientes e funcionários)  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Login com email e senha (`LoginScreen.native.tsx`)
-- Cadastro de novos usuários (`RegisterScreen.native.tsx`)
-- Validação de credenciais via API backend
-- Gerenciamento de sessão com JWT tokens
-- Diferenciação entre cliente e funcionário
-
 ### RF02 - Avaliação de Acessibilidade
-**Prioridade:** Alta  
-**Descrição:** Permitir avaliação de sites quanto aos critérios WCAG  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Simulação de avaliação com checklist WCAG (`EvaluationScreen.native.tsx`)
-- Níveis A, AA e AAA
-- Sistema de pontuação (0-100)
-- Visualização de progresso com gráfico circular
-
 ### RF03 - Gestão de Solicitações
-**Prioridade:** Alta  
-**Descrição:** Clientes podem criar e acompanhar solicitações de serviço  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Criação de solicitações (`RequestController.ts`)
-- Workflow de status (Solicitação → Orçamento → Contrato → Desenvolvimento → Finalizado)
-- Timeline de acompanhamento
-- Upload de arquivos (orçamento e contrato)
-
 ### RF04 - Dashboard de Cliente
-**Prioridade:** Alta  
-**Descrição:** Interface para clientes avaliarem sites e acompanharem solicitações  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Visualização de perfil
-- Avaliação de novos sites
-- Listagem de solicitações
-- Acompanhamento de status
-
 ### RF05 - Dashboard de Funcionário
-**Prioridade:** Alta  
-**Descrição:** Interface para funcionários gerenciarem solicitações  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Visualização de todas as solicitações
-- Atualização de status
-- Upload de orçamentos e contratos
-- Gerenciamento de clientes
-
 ### RF06 - Seleção de Planos
-**Prioridade:** Média  
-**Descrição:** Sugestão de planos baseada na avaliação de acessibilidade  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Planos Básico, Avançado e Premium
-- Recomendação automática baseada na pontuação
-- Detalhamento de funcionalidades por plano
-
 ### RF07 - Gerenciamento de Imagens
-**Prioridade:** Média  
-**Descrição:** Upload e sincronização de fotos de perfil  
-**Status:** 🚧 Em Desenvolvimento  
-**Implementação:**
-- Seleção de imagens da galeria
-- Upload para backend
-- Sincronização automática
-- Armazenamento local SQLite
-
 ### RF08 - Persistência Local de Dados
-**Prioridade:** Média  
-**Descrição:** Armazenamento local de dados para funcionar offline  
-**Status:** ✅ Implementado  
-**Implementação:**
-- Banco SQLite local (`DatabaseService.ts`)
-- Sincronização com backend
-- Cache de dados do usuário
 
 ---
 
 ## 🔒 Requisitos Não Funcionais
 
 ### RNF01 - Desempenho
-**Categoria:** Eficiência  
-**Descrição:** O aplicativo deve carregar em menos de 3 segundos  
-**Métrica:** Tempo de inicialização < 3s  
-**Status:** ✅ Atendido
-
 ### RNF02 - Usabilidade
-**Categoria:** UX/UI  
-**Descrição:** Interface intuitiva seguindo Material Design e padrões iOS  
-**Métrica:** Feedback visual em todas as ações  
-**Status:** ✅ Atendido  
-**Implementação:**
-- Cores consistentes
-- Gradientes modernos
-- Animações suaves
-- Feedback de loading
-
 ### RNF03 - Compatibilidade
-**Categoria:** Portabilidade  
-**Descrição:** Funcionar em Android, iOS e Web  
-**Métrica:** Suporte multiplataforma  
-**Status:** ✅ Atendido  
-**Plataformas:**
-- ✅ Android 5.0+
-- ✅ iOS 11.0+
-- ✅ Web (navegadores modernos)
-
 ### RNF04 - Segurança
-**Categoria:** Segurança  
-**Descrição:** Proteção de dados sensíveis e autenticação segura  
-**Métrica:** Conformidade com OWASP Mobile Top 10  
-**Status:** ⚠️ Parcialmente Atendido  
-**Implementado:**
-- ✅ Comunicação HTTPS
-- ✅ Validação de inputs
-- ⚠️ Token JWT em memória (não persiste)
-- ❌ Senhas mock sem hash no SQLite local
-
 ### RNF05 - Disponibilidade
-**Categoria:** Confiabilidade  
-**Descrição:** Sistema deve estar disponível 99% do tempo  
-**Métrica:** Uptime > 99%  
-**Status:** 🎯 Dependente do Backend  
-**Implementação:**
-- Tratamento de erros de rede
-- Mensagens de erro amigáveis
-- Modo offline parcial
-
 ### RNF06 - Manutenibilidade
-**Categoria:** Qualidade de Código  
-**Descrição:** Código organizado seguindo padrões e boas práticas  
-**Métrica:** Arquitetura MVC, TypeScript, documentação  
-**Status:** ✅ Atendido  
-**Implementação:**
-- Arquitetura MVC bem definida
-- TypeScript para tipagem forte
-- Comentários e documentação inline
-- Separação de responsabilidades
-
 ### RNF07 - Escalabilidade
-**Categoria:** Performance  
-**Descrição:** Suportar crescimento de usuários sem degradação  
-**Métrica:** Desempenho consistente com aumento de dados  
-**Status:** ✅ Atendido  
-**Implementação:**
-- Paginação de listas
-- Lazy loading de imagens
-- Cache inteligente
-
 ### RNF08 - Acessibilidade
-**Categoria:** Inclusão  
-**Descrição:** Interface acessível para pessoas com deficiências  
-**Métrica:** Conformidade WCAG 2.1 AA  
-**Status:** 🚧 Em Desenvolvimento  
-**Planejado:**
-- Labels acessíveis
-- Suporte a leitores de tela
-- Contraste adequado de cores
-- Navegação por teclado
 
 ---
 
