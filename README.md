@@ -1,11 +1,21 @@
 # ADA Company - Frontend Mobile
 
 <p align="center">
+  <img src="./assets/AdaHome.png" alt="ADA Company Logo" width="400"/>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native" />
   <img src="https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white" alt="Expo" />
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
 </p>
+
+<p align="center">
+  <strong>Sistema de Gestão de Acessibilidade Web</strong>
+</p>
+
+---
 
 Uma aplicação **React Native** desenvolvida com **Expo** para avaliação e gestão de acessibilidade web, seguindo o padrão arquitetural **MVC (Model-View-Controller)** com integração ao backend NestJS.
 
