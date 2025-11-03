@@ -124,3 +124,8 @@ yarn-error.*
 
 # iOS
 *.ipa
+
+# Documentation files (risk matrix, etc)
+*.xlsx
+*.csv
+Modelo_Matriz_de_Riscos_SI.*
