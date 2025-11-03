@@ -381,8 +381,11 @@ Ver arquivo completo da matriz: `Modelo_Matriz_de_Riscos_SI.csv`
 
 ### 📄 Matriz Completa
 
-A matriz de riscos completa com todos os 20 riscos identificados está disponível em:  
-**Arquivo:** `Modelo_Matriz_de_Riscos_SI.csv`
+A matriz de riscos completa com todos os 20 riscos identificados está disponível em:
+
+**📊 [Ver Matriz de Riscos (CSV)](./Modelo_Matriz_de_Riscos_SI.csv)** - Clique para visualizar no GitHub
+
+> 💡 **Dica:** O GitHub renderiza arquivos CSV como tabelas interativas que você pode ordenar e filtrar!
 
 **Estrutura da Matriz:**
 - Vulnerabilidade
