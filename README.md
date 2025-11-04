@@ -289,7 +289,6 @@ Esta seção apresenta os **20 riscos de segurança identificados** através de 
 - **Responsável:** Ambos (Backend + Frontend)
 
 #### R013-R019 - Outros Riscos Médios e Baixos
-Ver arquivo completo da matriz: `Modelo_Matriz_de_Riscos_SI.csv`
 
 ## 🚀 Como Executar
 
