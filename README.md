@@ -335,10 +335,32 @@ npx expo build
 
 ## 📱 Plataformas Suportadas
 
-- ✅ **Android** - App nativo Android
-- ✅ **iOS** - App nativo iOS
-- ✅ **Web** - Funciona no navegador
+- ✅ **Android** - App nativo Android com SQLite
+- ✅ **iOS** - App nativo iOS com SQLite
+- ✅ **Web** - Funciona no navegador com IndexedDB ⭐ NOVO!
 - ✅ **Expo Go** - App Expo Go para desenvolvimento
+
+### 🔄 Sistema de Storage Cross-Platform
+
+O app detecta automaticamente a plataforma e usa o storage apropriado:
+
+```typescript
+// Mobile (iOS/Android)
+└── SQLite + FileSystem
+    ├── Metadados das imagens
+    └── Arquivos no DocumentDirectory
+
+// Web (Navegador)
+└── IndexedDB + Blob Storage
+    ├── Metadados das imagens
+    └── Blobs armazenados localmente
+```
+
+**Benefícios:**
+- ✅ Mesma API para todas as plataformas
+- ✅ Armazenamento local funciona offline
+- ✅ Sincronização opcional com servidor
+- ✅ Sem dependências específicas de plataforma no código de negócio
 
 ### Configuração do Backend
 
@@ -401,8 +423,10 @@ Cadastre um novo usuário usando a tela de registro ou use as credenciais cadast
 - **React Native Web** 0.21.0 - Suporte web
 
 ### Persistência
-- **Expo SQLite** 16.0.8 - Banco de dados local
-- **Expo File System** 19.0.16 - Gerenciamento de arquivos
+- **Expo SQLite** 16.0.8 - Banco de dados local (mobile)
+- **IndexedDB** - Banco de dados no navegador (web)
+- **Expo File System** 19.0.16 - Gerenciamento de arquivos (mobile)
+- **Blob Storage** - Armazenamento de imagens na web
 
 ### Imagens
 - **Expo Image Picker** 17.0.8 - Seleção de imagens da galeria
@@ -467,12 +491,17 @@ Cadastre um novo usuário usando a tela de registro ou use as credenciais cadast
 - Comparação de funcionalidades
 - Contratação integrada
 
-### 🚧 **Gerenciamento de Imagens** (Em Desenvolvimento)
+### ✅ **Sistema de Imagens Cross-Platform** ⭐ NOVO!
+- **Mobile (SQLite)** + **Web (IndexedDB)** com mesma API
 - Upload de fotos de perfil
-- Seleção da galeria
-- Sincronização com backend
-- Armazenamento local SQLite
-- Compressão automática
+- Seleção da galeria (mobile) ou file input (web)
+- Armazenamento local automático (SQLite no mobile, IndexedDB na web)
+- Sincronização opcional com backend
+- Validação de tipo e tamanho de arquivo
+- Categorização de imagens (user_photo, company_logo, etc.)
+- Sistema de adaptadores para abstração de plataforma
+- Suporte a Blob storage na web
+- Ver: [GUIA_IMAGENS_WEB.md](./GUIA_IMAGENS_WEB.md) para mais detalhes
 
 ---
 
@@ -742,6 +771,11 @@ Abra um Pull Request descrevendo suas mudanças.
 ### Documentação Relacionada
 - [Backend NestJS - README](../backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS/README.md)
 - [Matriz de Riscos - CSV](../Modelo_Matriz_de_Riscos_SI.csv)
+- **📸 Sistema de Imagens Cross-Platform:**
+  - [GUIA_IMAGENS_WEB.md](./GUIA_IMAGENS_WEB.md) - Guia completo de uso
+  - [RESUMO_IMPLEMENTACAO.md](./RESUMO_IMPLEMENTACAO.md) - Detalhes da implementação
+  - [INTEGRACAO_EXEMPLO.md](./INTEGRACAO_EXEMPLO.md) - Exemplos de integração
+  - [COMO_TESTAR.md](./COMO_TESTAR.md) - Instruções de teste
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Native Documentation](https://reactnative.dev/docs/getting-started)
 

@@ -54,8 +54,15 @@ export class UserModel {
         return { success: false, error: 'Email e senha são obrigatórios' };
       }
 
-      // Tentar usar a API primeiro
-      if (this.USE_API) {
+      // Detectar credenciais de teste e usar banco local diretamente
+      const isTestCredential = email === 'client@example.com' || email === 'employee@example.com';
+      
+      if (isTestCredential) {
+        console.log('[UserModel] Credencial de teste detectada, usando banco local...');
+      }
+
+      // Tentar usar a API primeiro (exceto para credenciais de teste)
+      if (this.USE_API && !isTestCredential) {
         try {
           console.log('[UserModel] Tentando login via API...');
           const apiResponse = await this.api.login(email, password);
@@ -76,9 +83,12 @@ export class UserModel {
             console.log('[UserModel] Login via API bem-sucedido!');
             console.log('[UserModel] Usuário:', user);
             return { success: true, data: user };
+          } else {
+            // API retornou erro, fazer fallback para banco local
+            console.warn('[UserModel] API retornou erro, tentando banco local...', apiResponse.error);
           }
         } catch (apiError) {
-          console.warn('[UserModel] Falha na API, tentando SQLite local...', apiError);
+          console.warn('[UserModel] Falha na API, tentando banco local...', apiError);
         }
       }
 

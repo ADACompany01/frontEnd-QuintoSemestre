@@ -1,27 +1,34 @@
 /**
- * DatabaseService - Serviço de banco de dados SQLite
+ * DatabaseService - Serviço de banco de dados cross-platform
  * 
  * Responsabilidades:
- * - Configuração e inicialização do banco SQLite
- * - Criação de tabelas necessárias
+ * - Configuração e inicialização do banco de dados
+ * - Abstração entre SQLite (mobile) e IndexedDB (web)
  * - Operações básicas de banco de dados
  * - Gerenciamento de conexões
  */
 
-import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
+import { StorageAdapter, DatabaseResult } from './storage/StorageAdapter';
+import { SQLiteAdapter } from './storage/SQLiteAdapter';
+import { IndexedDBAdapter } from './storage/IndexedDBAdapter';
 
-export interface DatabaseResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-}
+export { DatabaseResult };
 
 export class DatabaseService {
   private static instance: DatabaseService;
-  private db: SQLite.SQLiteDatabase | null = null;
-  private isInitialized = false;
+  private adapter: StorageAdapter;
 
-  private constructor() {}
+  private constructor() {
+    // Seleciona o adapter correto baseado na plataforma
+    if (Platform.OS === 'web') {
+      console.log('Usando IndexedDB para web');
+      this.adapter = new IndexedDBAdapter();
+    } else {
+      console.log('Usando SQLite para mobile');
+      this.adapter = new SQLiteAdapter();
+    }
+  }
 
   /**
    * Singleton pattern para garantir uma única instância
@@ -37,199 +44,49 @@ export class DatabaseService {
    * Inicializa o banco de dados e cria as tabelas necessárias
    */
   async initialize(): Promise<DatabaseResult> {
-    try {
-      if (this.isInitialized && this.db) {
-        return { success: true, data: 'Database already initialized' };
-      }
-
-      this.db = await SQLite.openDatabaseAsync('ada_company.db');
-      
-      if (!this.db) {
-        throw new Error('Failed to open database');
-      }
-
-      await this.createTables();
-      this.isInitialized = true;
-
-      console.log('Database initialized successfully');
-      return { success: true, data: 'Database initialized' };
-    } catch (error) {
-      console.error('Database initialization error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
-
-  /**
-   * Cria todas as tabelas necessárias
-   */
-  private async createTables(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    // Tabela de usuários
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL CHECK (type IN ('client', 'employee')),
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        photo_path TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Tabela de imagens
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        filename TEXT NOT NULL,
-        file_path TEXT NOT NULL,
-        file_size INTEGER NOT NULL,
-        mime_type TEXT NOT NULL,
-        category TEXT NOT NULL CHECK (category IN ('user_photo', 'company_logo', 'request_document', 'other')),
-        user_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-      );
-    `);
-
-    // Tabela de configurações da empresa
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS company_settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        setting_key TEXT UNIQUE NOT NULL,
-        setting_value TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Inserir dados iniciais
-    await this.insertInitialData();
-  }
-
-  /**
-   * Insere dados iniciais no banco
-   */
-  private async insertInitialData(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    // Inserir usuários mock
-    await this.db.runAsync(`
-      INSERT OR IGNORE INTO users (type, name, email, password, photo_path) VALUES
-      ('client', 'Alex Doe', 'client@example.com', 'password123', NULL),
-      ('employee', 'Jane Smith', 'employee@example.com', 'password123', NULL);
-    `);
-
-    // Inserir configurações da empresa
-    await this.db.runAsync(`
-      INSERT OR IGNORE INTO company_settings (setting_key, setting_value) VALUES
-      ('company_name', 'ADA Company'),
-      ('company_logo_path', NULL),
-      ('app_version', '1.0.0');
-    `);
+    return this.adapter.initialize();
   }
 
   /**
    * Executa uma query SQL
    */
   async query(sql: string, params: any[] = []): Promise<DatabaseResult> {
-    try {
-      if (!this.db) {
-        throw new Error('Database not initialized');
-      }
-
-      const result = await this.db.getAllAsync(sql, params);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error('Query error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    return this.adapter.query(sql, params);
   }
 
   /**
    * Executa uma operação de inserção/atualização/exclusão
    */
   async execute(sql: string, params: any[] = []): Promise<DatabaseResult> {
-    try {
-      if (!this.db) {
-        throw new Error('Database not initialized');
-      }
-
-      const result = await this.db.runAsync(sql, params);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error('Execute error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    return this.adapter.execute(sql, params);
   }
 
   /**
    * Obtém uma única linha de resultado
    */
   async getFirst(sql: string, params: any[] = []): Promise<DatabaseResult> {
-    try {
-      if (!this.db) {
-        throw new Error('Database not initialized');
-      }
-
-      const result = await this.db.getFirstAsync(sql, params);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error('GetFirst error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    return this.adapter.getFirst(sql, params);
   }
 
   /**
    * Inicia uma transação
    */
   async transaction(callback: () => Promise<void>): Promise<DatabaseResult> {
-    try {
-      if (!this.db) {
-        throw new Error('Database not initialized');
-      }
-
-      await this.db.withTransactionAsync(callback);
-      return { success: true };
-    } catch (error) {
-      console.error('Transaction error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    return this.adapter.transaction(callback);
   }
 
   /**
    * Fecha a conexão com o banco
    */
   async close(): Promise<void> {
-    if (this.db) {
-      await this.db.closeAsync();
-      this.db = null;
-      this.isInitialized = false;
-    }
+    return this.adapter.close();
   }
 
   /**
    * Verifica se o banco está inicializado
    */
   isReady(): boolean {
-    return this.isInitialized && this.db !== null;
+    return this.adapter.isReady();
   }
 }
 
