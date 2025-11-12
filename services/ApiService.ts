@@ -34,11 +34,6 @@ export class ApiService {
   }
 
   private constructor() {
-    // DEBUG: Mostrar configuração da API
-    console.log('[ApiService] Inicializando com configuração:');
-    console.log('[ApiService] BaseURL:', API_CONFIG.baseURL);
-    console.log('[ApiService] Timeout:', API_CONFIG.timeout);
-    
     // Criar instância do axios com configurações base
     this.axiosInstance = axios.create(API_CONFIG);
 
@@ -57,11 +52,7 @@ export class ApiService {
           config.headers.Authorization = `Bearer ${this.authToken}`;
         }
         
-        // DEBUG: Mostrar URL completa sendo chamada
-        const fullUrl = config.baseURL + config.url;
         console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
-        console.log(`[API] URL COMPLETA: ${fullUrl}`);
-        console.log(`[API] BaseURL: ${config.baseURL}`);
         return config;
       },
       (error) => {
@@ -260,8 +251,6 @@ export class ApiService {
           errorMessage = data.error;
         }
         
-        console.log('[API] Erro do servidor capturado:', errorMessage);
-        
         return {
           success: false,
           error: errorMessage,
@@ -269,7 +258,6 @@ export class ApiService {
         };
       } else if (axiosError.request) {
         // Sem resposta do servidor
-        console.log('[API] Sem resposta do servidor - possível problema de rede');
         return {
           success: false,
           error: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
