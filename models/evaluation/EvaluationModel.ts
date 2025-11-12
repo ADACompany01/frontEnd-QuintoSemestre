@@ -91,49 +91,137 @@ export class EvaluationModel {
           if (apiResponse.success && apiResponse.data) {
             const lighthouseData = apiResponse.data;
             
-            // Extrair pontuação de acessibilidade (0-1 para 0-100)
-            const score = Math.round((lighthouseData.accessibility || 0) * 100);
+            console.log('[EvaluationModel] Resposta da API:', lighthouseData);
             
-            // Extrair problemas dos audits do Lighthouse
-            const issues: EvaluationIssue[] = [];
-            const audits = lighthouseData.audits || {};
-            
-            // Mapear audits com problemas para issues
-            Object.entries(audits).forEach(([key, audit]: [string, any]) => {
-              if (audit.score !== null && audit.score < 1 && audit.title) {
-                issues.push({
-                  id: key,
-                  text: audit.title,
-                  type: 'issue',
-                  priority: audit.score === 0 ? 5 : Math.ceil((1 - audit.score) * 5)
+            // Verificar se recebemos dados no formato do backend (notaAcessibilidade)
+            if (lighthouseData.notaAcessibilidade !== undefined) {
+              const score = Math.round(lighthouseData.notaAcessibilidade);
+              
+              // Extrair problemas das auditorias reprovadas
+              const issues: EvaluationIssue[] = [];
+              
+              // Processar auditorias reprovadas (score = 0)
+              if (lighthouseData.reprovadas && Array.isArray(lighthouseData.reprovadas)) {
+                lighthouseData.reprovadas.forEach((audit: any) => {
+                  if (audit.title) {
+                    issues.push({
+                      id: audit.id || `reprovada-${issues.length}`,
+                      text: audit.title,
+                      type: 'issue',
+                      priority: 5 // Máxima prioridade para reprovadas
+                    });
+                  }
                 });
               }
-            });
+              
+              // Processar auditorias manuais (necessitam verificação manual)
+              if (lighthouseData.manuais && Array.isArray(lighthouseData.manuais)) {
+                lighthouseData.manuais.slice(0, 3).forEach((audit: any) => {
+                  if (audit.title) {
+                    issues.push({
+                      id: audit.id || `manual-${issues.length}`,
+                      text: `[Verificação Manual] ${audit.title}`,
+                      type: 'issue',
+                      priority: 3 // Prioridade média para manuais
+                    });
+                  }
+                });
+              }
 
-            // Limitar a 10 issues mais críticos
-            const topIssues = issues
-              .sort((a, b) => (b.priority || 0) - (a.priority || 0))
-              .slice(0, 10);
+              // Limitar a 10 issues mais críticos
+              const topIssues = issues
+                .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                .slice(0, 10);
 
-            console.log(`[EvaluationModel] Avaliação concluída: ${score}% de acessibilidade`);
+              console.log(`[EvaluationModel] ✅ Avaliação REAL concluída: ${score}% de acessibilidade`);
+              console.log(`[EvaluationModel] Total de problemas encontrados: ${topIssues.length}`);
+              console.log(`[EvaluationModel] Reprovadas: ${lighthouseData.reprovadas?.length || 0}`);
+              console.log(`[EvaluationModel] Aprovadas: ${lighthouseData.aprovadas?.length || 0}`);
+              console.log(`[EvaluationModel] Manuais: ${lighthouseData.manuais?.length || 0}`);
+              
+              return {
+                score,
+                issues: topIssues.length > 0 ? topIssues : this.getRandomIssues(),
+                siteUrl,
+                evaluatedAt: new Date()
+              };
+            }
             
-            return {
-              score,
-              issues: topIssues.length > 0 ? topIssues : this.getRandomIssues(),
-              siteUrl,
-              evaluatedAt: new Date()
-            };
+            // Formato antigo/alternativo da API (mantido para retrocompatibilidade)
+            if (lighthouseData.accessibility !== undefined) {
+              const score = Math.round((lighthouseData.accessibility || 0) * 100);
+              
+              const issues: EvaluationIssue[] = [];
+              const audits = lighthouseData.audits || {};
+              
+              Object.entries(audits).forEach(([key, audit]: [string, any]) => {
+                if (audit.score !== null && audit.score < 1 && audit.title) {
+                  issues.push({
+                    id: key,
+                    text: audit.title,
+                    type: 'issue',
+                    priority: audit.score === 0 ? 5 : Math.ceil((1 - audit.score) * 5)
+                  });
+                }
+              });
+
+              const topIssues = issues
+                .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                .slice(0, 10);
+
+              console.log(`[EvaluationModel] Avaliação concluída: ${score}% de acessibilidade`);
+              
+              return {
+                score,
+                issues: topIssues.length > 0 ? topIssues : this.getRandomIssues(),
+                siteUrl,
+                evaluatedAt: new Date()
+              };
+            }
           }
+          
+          // Se chegou aqui, temos um erro da API
+          if (!apiResponse.success) {
+            const errorMsg = apiResponse.error || 'Erro desconhecido';
+            console.error('[EvaluationModel] ❌ Erro da API:', errorMsg);
+            console.error('[EvaluationModel] Status Code:', apiResponse.statusCode);
+            
+            // Se for BAD_REQUEST (400), a mensagem do backend já é descritiva
+            if (apiResponse.statusCode === 400) {
+              throw new Error(errorMsg);
+            }
+            
+            // Para outros erros, verificar se é erro de URL inacessível
+            if (errorMsg.includes('Lighthouse') || 
+                errorMsg.includes('timeout') || 
+                errorMsg.includes('ENOTFOUND') ||
+                errorMsg.includes('não pôde ser acessada') ||
+                errorMsg.includes('não foi possível conectar')) {
+              throw new Error(errorMsg);
+            }
+            
+            throw new Error(errorMsg);
+          }
+          
+          console.warn('[EvaluationModel] ⚠️ Resposta da API em formato não reconhecido');
+          throw new Error('Resposta da API em formato não reconhecido');
         } catch (apiError) {
-          console.warn('[EvaluationModel] Falha na API, usando avaliação simulada...', apiError);
+          console.error('[EvaluationModel] ❌ Erro ao avaliar site:', apiError);
+          
+          // Re-lançar o erro para o controlador tratar
+          throw apiError instanceof Error 
+            ? apiError 
+            : new Error('Erro ao avaliar site. Tente novamente.');
         }
       }
 
-      // Fallback: Simular avaliação
+      // Fallback: Simular avaliação (somente se USE_API for false)
+      console.log('[EvaluationModel] ⚠️ Modo API desativado, usando simulação...');
       return this.simulateEvaluation(siteUrl);
     } catch (error) {
-      console.error('[EvaluationModel] Erro ao avaliar site:', error);
-      return this.simulateEvaluation(siteUrl);
+      console.error('[EvaluationModel] ❌ Erro fatal ao avaliar site:', error);
+      // Re-lançar o erro para ser tratado pelo controlador
+      throw error;
     }
   }
 

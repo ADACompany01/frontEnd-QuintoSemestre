@@ -34,6 +34,11 @@ export class ApiService {
   }
 
   private constructor() {
+    // DEBUG: Mostrar configuração da API
+    console.log('[ApiService] Inicializando com configuração:');
+    console.log('[ApiService] BaseURL:', API_CONFIG.baseURL);
+    console.log('[ApiService] Timeout:', API_CONFIG.timeout);
+    
     // Criar instância do axios com configurações base
     this.axiosInstance = axios.create(API_CONFIG);
 
@@ -52,7 +57,11 @@ export class ApiService {
           config.headers.Authorization = `Bearer ${this.authToken}`;
         }
         
+        // DEBUG: Mostrar URL completa sendo chamada
+        const fullUrl = config.baseURL + config.url;
         console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        console.log(`[API] URL COMPLETA: ${fullUrl}`);
+        console.log(`[API] BaseURL: ${config.baseURL}`);
         return config;
       },
       (error) => {
@@ -237,13 +246,30 @@ export class ApiService {
       if (axiosError.response) {
         // Erro com resposta do servidor
         const data: any = axiosError.response.data;
+        
+        // NestJS retorna erro no formato: { statusCode, message, error }
+        // Extrair a mensagem do backend
+        let errorMessage = 'Erro na requisição';
+        
+        if (typeof data === 'string') {
+          errorMessage = data;
+        } else if (data?.message) {
+          // NestJS geralmente coloca a mensagem em 'message'
+          errorMessage = Array.isArray(data.message) ? data.message[0] : data.message;
+        } else if (data?.error) {
+          errorMessage = data.error;
+        }
+        
+        console.log('[API] Erro do servidor capturado:', errorMessage);
+        
         return {
           success: false,
-          error: data?.message || data?.error || 'Erro na requisição',
+          error: errorMessage,
           statusCode: axiosError.response.status,
         };
       } else if (axiosError.request) {
         // Sem resposta do servidor
+        console.log('[API] Sem resposta do servidor - possível problema de rede');
         return {
           success: false,
           error: 'Não foi possível conectar ao servidor. Verifique sua conexão.',

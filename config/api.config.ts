@@ -22,7 +22,7 @@ export const API_BASE_URL = __DEV__
   : 'https://backend-adacompany.onrender.com'; // Produção
 
 // Timeout para requisições (em milissegundos)
-export const API_TIMEOUT = 30000; // 30 segundos
+export const API_TIMEOUT = 120000; // 120 segundos (2 minutos) - Lighthouse pode demorar
 
 // Headers padrão
 export const DEFAULT_HEADERS = {
