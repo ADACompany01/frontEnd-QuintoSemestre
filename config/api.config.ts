@@ -2,24 +2,24 @@
  * Configuração da API
  * 
  * Centraliza as configurações de conexão com o backend
+ * 
+ * ✅ DETECÇÃO AUTOMÁTICA: Não precisa mais configurar IP manualmente!
+ * 
+ * Como funciona:
+ * - Web: usa localhost automaticamente
+ * - Mobile: detecta IP automaticamente ou usa duckdns.org
+ * - Você pode sobrescrever usando variável de ambiente EXPO_PUBLIC_API_URL
  */
 
-// URL base da API
-// IMPORTANTE: Para Android, use o IP da sua máquina na rede local
-// Para encontrar o IP: ipconfig (Windows) ou ifconfig (Mac/Linux)
-// O Expo mostra o IP quando inicia: exp://SEU_IP:8081
+import { getApiBaseUrl } from '../utils/getApiUrl';
 
-// Configure o IP da sua máquina aqui:
-const LOCAL_IP = '192.168.50.58'; // IP da máquina na rede local (visto no Expo)
-
-// Em desenvolvimento local:
-// - Web: http://localhost:3000
-// - Android/iOS: http://SEU_IP:3000
-// Em produção (Render): https://backend-adacompany.onrender.com
-
-export const API_BASE_URL = __DEV__ 
-  ? 'http://adacompany.duckdns.org/api/mobile'  // Desenvolvimento (funciona em web, Android e iOS)
-  : `http://${LOCAL_IP}:3001`; // Produção
+// URL base da API - detectada automaticamente
+// Prioridade:
+// 1. Variável de ambiente EXPO_PUBLIC_API_URL (se definida)
+// 2. Web: localhost:3000
+// 3. Mobile dev: IP do Expo ou duckdns.org
+// 4. Produção: duckdns.org
+export const API_BASE_URL = getApiBaseUrl();
 
 // Timeout para requisições (em milissegundos)
 export const API_TIMEOUT = 120000; // 120 segundos (2 minutos) - Lighthouse pode demorar
