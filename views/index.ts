@@ -18,6 +18,7 @@ export { ClientDashboard } from './screens/ClientDashboard.native';
 export { EmployeeDashboard } from './screens/EmployeeDashboard.native';
 export { EvaluationScreen } from './screens/EvaluationScreen.native';
 export { PlanSelectionScreen } from './screens/PlanSelectionScreen.native';
+export { SignatureScreen } from './screens/SignatureScreen.native';
 
 // EXPANSÃO FUTURA:
 // - Novas telas podem ser adicionadas aqui

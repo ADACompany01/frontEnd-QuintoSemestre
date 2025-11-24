@@ -198,35 +198,73 @@ export class RequestModel {
 
       // Processar orçamentos
       if (budgetsResponse.success && budgetsResponse.data) {
-        budgetsResponse.data.forEach((budget: any) => {
+        // O backend retorna { statusCode, message, data: [...] } para orçamentos
+        const budgetsArray = Array.isArray(budgetsResponse.data) 
+          ? budgetsResponse.data 
+          : (budgetsResponse.data.data || []);
+        
+        budgetsArray.forEach((budget: any) => {
+          // Mapear campos do backend para o formato do frontend
+          const cliente = budget.pacote?.cliente || budget.cliente;
+          const codOrcamento = budget.cod_orcamento || budget.id;
+          
+          // Gerar ID numérico a partir do UUID (usando hash simples)
+          const id = codOrcamento 
+            ? Math.abs(codOrcamento.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % 1000000000
+            : Date.now();
+          
           requests.push({
-            id: budget.id,
-            clientName: budget.cliente?.nome_razao_social || 'Cliente Desconhecido',
+            id,
+            clientName: cliente?.nome_completo || cliente?.nome_razao_social || 'Cliente Desconhecido',
             site: budget.site || '',
-            plan: this.mapPlanFromBackend(budget.pacote?.nivel),
+            plan: this.mapPlanFromBackend(budget.pacote?.tipo_pacote),
             status: 'Quote Sent',
             quoteFile: budget.arquivo_orcamento ? {
               name: budget.arquivo_orcamento.split('/').pop() || 'orcamento.pdf',
               url: budget.arquivo_orcamento
             } : undefined,
             selectedIssues: [],
-            createdAt: budget.created_at ? new Date(budget.created_at) : new Date(),
-            updatedAt: budget.updated_at ? new Date(budget.updated_at) : new Date()
-          });
+            createdAt: budget.createdAt ? new Date(budget.createdAt) : (budget.created_at ? new Date(budget.created_at) : new Date()),
+            updatedAt: budget.updatedAt ? new Date(budget.updatedAt) : (budget.updated_at ? new Date(budget.updated_at) : new Date()),
+            // Armazenar cod_orcamento para relacionar com contratos
+            _codOrcamento: codOrcamento
+          } as any);
         });
       }
 
       // Processar contratos
       if (contractsResponse.success && contractsResponse.data) {
-        contractsResponse.data.forEach((contract: any) => {
-          // Verificar se já existe um orçamento para este cliente
-          const existingIndex = requests.findIndex(r => r.id === contract.orcamento_id);
+        // O backend retorna array direto para contratos
+        const contractsArray = Array.isArray(contractsResponse.data) 
+          ? contractsResponse.data 
+          : [];
+        
+        contractsArray.forEach((contract: any) => {
+          // Mapear campos do backend para o formato do frontend
+          const orcamento = contract.orcamento;
+          const cliente = orcamento?.pacote?.cliente || contract.cliente;
+          const codOrcamento = contract.cod_orcamento || contract.orcamento_id;
+          const idContrato = contract.id_contrato || contract.id;
+          
+          // Verificar se já existe um orçamento para este código de orçamento
+          const existingIndex = requests.findIndex((r: any) => {
+            // Tentar encontrar pelo cod_orcamento armazenado
+            return codOrcamento && r._codOrcamento === codOrcamento;
+          });
+          
+          // Determinar status baseado no status_contrato
+          let status: RequestStatus = 'Contract Sent';
+          if (contract.status_contrato === 'CONCLUIDO' || contract.contrato_assinado_url) {
+            status = 'Contract Signed';
+          } else if (contract.status_contrato === 'EM_ANDAMENTO') {
+            status = 'In Development';
+          }
           
           if (existingIndex >= 0) {
             // Atualizar solicitação existente com dados do contrato
             requests[existingIndex] = {
               ...requests[existingIndex],
-              status: contract.assinado ? 'Contract Signed' : 'Contract Sent',
+              status,
               contractFile: contract.arquivo_contrato ? {
                 name: contract.arquivo_contrato.split('/').pop() || 'contrato.pdf',
                 url: contract.arquivo_contrato
@@ -235,20 +273,27 @@ export class RequestModel {
             };
           } else {
             // Criar nova solicitação a partir do contrato
+            const id = idContrato 
+              ? Math.abs(idContrato.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % 1000000000
+              : Date.now();
+            
             requests.push({
-              id: contract.id,
-              clientName: contract.cliente?.nome_razao_social || 'Cliente Desconhecido',
+              id,
+              clientName: cliente?.nome_completo || cliente?.nome_razao_social || 'Cliente Desconhecido',
               site: contract.site || '',
-              plan: 'AA',
-              status: contract.assinado ? 'Contract Signed' : 'Contract Sent',
+              plan: this.mapPlanFromBackend(orcamento?.pacote?.tipo_pacote) || 'AA',
+              status,
               contractFile: contract.arquivo_contrato ? {
                 name: contract.arquivo_contrato.split('/').pop() || 'contrato.pdf',
                 url: contract.arquivo_contrato
               } : undefined,
+              contractSignedUrl: contract.contrato_assinado_url,
               selectedIssues: [],
-              createdAt: contract.created_at ? new Date(contract.created_at) : new Date(),
-              updatedAt: contract.updated_at ? new Date(contract.updated_at) : new Date()
-            });
+              createdAt: contract.createdAt ? new Date(contract.createdAt) : (contract.created_at ? new Date(contract.created_at) : new Date()),
+              updatedAt: contract.updatedAt ? new Date(contract.updatedAt) : (contract.updated_at ? new Date(contract.updated_at) : new Date()),
+              // Armazenar cod_orcamento para relacionar com orçamentos
+              _codOrcamento: codOrcamento
+            } as any);
           }
         });
       }
