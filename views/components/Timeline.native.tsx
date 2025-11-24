@@ -11,10 +11,11 @@ interface TimelineProps {
   request: AccessibilityRequest;
   statusConfig: StatusConfig;
   onApprove?: (requestId: string) => Promise<void>;
+  onReject?: (requestId: string) => Promise<void>;
   onSignContract?: (requestId: string, signatureBase64?: string) => Promise<void>;
 }
 
-export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApprove, onSignContract }) => {
+export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApprove, onReject, onSignContract }) => {
   if (!request) return null;
 
   const [isSignatureModalVisible, setIsSignatureModalVisible] = useState(false);
@@ -66,9 +67,31 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
           onPress: async () => {
             try {
               await onApprove(request.id.toString());
-              Alert.alert('Sucesso!', 'Orçamento aprovado! Aguarde o contrato.');
             } catch (error) {
               Alert.alert('Erro', 'Erro ao aprovar orçamento. Tente novamente.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReject = async () => {
+    if (!onReject) return;
+
+    Alert.alert(
+      'Recusar Orçamento',
+      'Deseja realmente recusar este orçamento? Você precisará criar uma nova solicitação.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Recusar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await onReject(request.id.toString());
+            } catch (error) {
+              Alert.alert('Erro', 'Erro ao recusar orçamento. Tente novamente.');
             }
           },
         },
@@ -167,6 +190,16 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
                         onPress={handleApprove}
                       >
                         <Text style={styles.approveButtonText}>✅ Aprovar Orçamento</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Reject button for quote */}
+                    {canApproveQuote(step, index) && onReject && (
+                      <TouchableOpacity
+                        style={styles.rejectButton}
+                        onPress={handleReject}
+                      >
+                        <Text style={styles.rejectButtonText}>❌ Recusar Orçamento</Text>
                       </TouchableOpacity>
                     )}
 
@@ -393,6 +426,24 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   approveButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  rejectButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+    marginLeft: 8,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  rejectButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
