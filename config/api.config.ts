@@ -50,6 +50,7 @@ export const API_ENDPOINTS = {
     BASE: '/clientes',
     BY_ID: (id: string | number) => `/clientes/${id}`,
     CADASTRO: '/clientes/cadastro',
+    ME: '/clientes/me',
   },
   
   // Funcionários
@@ -74,6 +75,7 @@ export const API_ENDPOINTS = {
   CONTRACTS: {
     BASE: '/contratos',
     BY_ID: (id: string | number) => `/contratos/${id}`,
+    SIGN: '/contratos/sign',
   },
   
   // Lighthouse (avaliação de acessibilidade)

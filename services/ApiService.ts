@@ -52,6 +52,12 @@ export class ApiService {
           config.headers.Authorization = `Bearer ${this.authToken}`;
         }
         
+        // Para FormData, remover Content-Type para deixar o browser/axios definir automaticamente
+        // Isso é necessário para que o boundary seja adicionado corretamente
+        if (config.data instanceof FormData) {
+          delete config.headers['Content-Type'];
+        }
+        
         console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
@@ -86,8 +92,15 @@ export class ApiService {
 
       switch (status) {
         case HTTP_STATUS.UNAUTHORIZED:
-          // Token expirado ou inválido - limpar autenticação
-          this.clearAuth();
+          // Verificar se é erro de autenticação ou apenas de permissão
+          const errorMessage = data?.message || '';
+          if (errorMessage.includes('Acesso negado') || errorMessage.includes('permissão')) {
+            // É apenas erro de permissão, não remover token
+            console.error('[API] Acesso negado - permissão insuficiente');
+          } else {
+            // Token expirado ou inválido - limpar autenticação
+            this.clearAuth();
+          }
           break;
         
         case HTTP_STATUS.FORBIDDEN:
@@ -345,6 +358,29 @@ export class ApiService {
   }
 
   /**
+   * Busca cliente por email (apenas funcionários)
+   */
+  async getClientByEmail(email: string): Promise<ApiResponse<any>> {
+    // Buscar todos os clientes e filtrar por email
+    const response = await this.getClients();
+    if (response.success && response.data) {
+      const cliente = response.data.find((c: any) => c.email === email);
+      if (cliente) {
+        return { success: true, data: cliente };
+      }
+      return { success: false, error: 'Cliente não encontrado' };
+    }
+    return response;
+  }
+
+  /**
+   * Busca dados do cliente logado (apenas clientes)
+   */
+  async getMyClient(): Promise<ApiResponse<any>> {
+    return this.get(API_ENDPOINTS.CLIENTS.ME);
+  }
+
+  /**
    * Cadastra novo cliente
    */
   async createClient(clientData: any): Promise<ApiResponse<any>> {
@@ -401,6 +437,13 @@ export class ApiService {
   }
 
   /**
+   * Cria novo pacote
+   */
+  async createPackage(packageData: any): Promise<ApiResponse<any>> {
+    return this.post(API_ENDPOINTS.PACKAGES.BASE, packageData);
+  }
+
+  /**
    * Analisa acessibilidade de um site
    */
   async analyzeSiteAccessibility(url: string): Promise<ApiResponse<any>> {
@@ -433,6 +476,16 @@ export class ApiService {
    */
   async createContract(contractData: any): Promise<ApiResponse<any>> {
     return this.post(API_ENDPOINTS.CONTRACTS.BASE, contractData);
+  }
+
+  /**
+   * Assina um contrato digitalmente
+   */
+  async signContract(contratoId: string, signatureBase64: string): Promise<ApiResponse<{ signedContractPath: string }>> {
+    return this.post(API_ENDPOINTS.CONTRACTS.SIGN, {
+      contrato_id: contratoId,
+      signature: signatureBase64,
+    });
   }
 }
 
