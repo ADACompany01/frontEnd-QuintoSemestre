@@ -37,7 +37,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [userType, setUserType] = useState<'client' | 'employee'>('client');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -93,7 +92,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        type: userType,
+        type: 'client', // Sempre cliente - funcionários não podem se cadastrar
         phone: phone.trim() || undefined,
       });
 
@@ -154,47 +153,6 @@ return (
 
           {/* Form */}
           <View style={styles.form}>
-            {/* User Type Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Tipo de Conta</Text>
-              <View style={styles.typeSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    userType === 'client' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setUserType('client')}
-                  disabled={isLoading}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      userType === 'client' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    👤 Cliente
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    userType === 'employee' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setUserType('employee')}
-                  disabled={isLoading}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      userType === 'employee' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    💼 Funcionário
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             {/* Name field */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nome Completo *</Text>
@@ -373,31 +331,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9ca3af',
     fontStyle: 'italic',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  typeButton: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  typeButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  typeButtonTextActive: {
-    color: 'white',
   },
   errorContainer: {
     backgroundColor: '#fef2f2',
