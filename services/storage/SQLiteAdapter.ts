@@ -90,11 +90,14 @@ export class SQLiteAdapter implements StorageAdapter {
   private async insertInitialData(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
-    // Inserir usuários mock
+    // Dados iniciais removidos por segurança
+    // As credenciais de teste estão documentadas no README.md
+    
+    // IMPORTANTE: Remover usuários de teste antigos que possam estar no banco
+    // Isso garante que dados mock não persistam após a remoção do código
     await this.db.runAsync(`
-      INSERT OR IGNORE INTO users (type, name, email, password, photo_path) VALUES
-      ('client', 'Alex Doe', 'client@example.com', 'password123', NULL),
-      ('employee', 'Jane Smith', 'employee@example.com', 'password123', NULL);
+      DELETE FROM users 
+      WHERE email IN ('client@example.com', 'employee@example.com');
     `);
 
     // Inserir configurações da empresa
