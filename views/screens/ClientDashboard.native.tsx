@@ -160,9 +160,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const handleConfirmPlan = async (plan: 'A' | 'AA' | 'AAA', selectedIssues: any[]) => {
     try {
+      // Obter a URL real da avaliação
+      const evaluationState = evaluationController.getState();
+      const siteUrl = evaluationState.currentEvaluation?.siteUrl || '';
+      
       const requestData = {
         clientName: user.name,
-        site: `site-${Date.now()}.com`,
+        site: siteUrl,
         plan,
         status: 'Awaiting Quote' as const,
         selectedIssues,
