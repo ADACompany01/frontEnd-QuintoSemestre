@@ -66,10 +66,9 @@
       "android",
       "web"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "3262c55d-3312-42ef-abcf-7f6d2190ca81"
-      }
+    "extra": {},
+    "updates": {
+      "enabled": false
     }
   }
 }
