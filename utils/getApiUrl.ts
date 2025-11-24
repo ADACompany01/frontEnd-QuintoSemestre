@@ -36,43 +36,14 @@ const getExpoIP = (): string | null => {
   return null;
 };
 
-/**
- * Detecta automaticamente a melhor URL da API baseado na plataforma
- */
+
 export const getApiBaseUrl = (): string => {
-  // 1. Verificar variável de ambiente (prioridade máxima)
-  // Permite override manual se necessário
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    console.log('[API] Usando URL da variável de ambiente:', process.env.EXPO_PUBLIC_API_URL);
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-
-  // 2. Para web, sempre usar localhost
-  if (Platform.OS === 'web') {
-    const url = 'http://localhost:3000';
-    console.log('[API] Web detectado, usando:', url);
-    return url;
-  }
-
-  // 3. Para mobile: tentar detectar IP do Expo automaticamente
-  if (__DEV__) {
-    const expoIP = getExpoIP();
-    if (expoIP) {
-      const url = `http://${expoIP}:3000`;
-      console.log('[API] IP do Expo detectado automaticamente:', url);
-      return url;
-    }
-  }
-
-  // 4. Fallback: usar duckdns.org (funciona em qualquer rede se configurado)
-  // Se o backend estiver acessível via internet, isso funciona automaticamente
-  const url = 'http://adacompany.duckdns.org:3000';
-  console.log('[API] Usando URL padrão (duckdns):', url);
-  console.log('[API] 💡 Dica: Configure EXPO_PUBLIC_API_URL para usar IP específico');
+  // FORÇAR NUVEM: Retorna direto a URL do seu backend
+  // Removi a barra final '/' para evitar duplicidade (ex: //auth)
+  const url = 'http://adacompany.duckdns.org/api/mobile';
+  
+  console.log('[API] URL Fixa (Nuvem):', url);
   return url;
 };
 
-/**
- * Configuração inteligente que detecta automaticamente o ambiente
- */
 export const API_BASE_URL = getApiBaseUrl();
