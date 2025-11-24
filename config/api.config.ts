@@ -78,6 +78,15 @@ export const API_ENDPOINTS = {
     SIGN: '/contratos/sign',
   },
   
+  // Solicitações
+  REQUESTS: {
+    BASE: '/solicitacoes',
+    BY_ID: (id: string | number) => `/solicitacoes/${id}`,
+    MY: '/solicitacoes/minhas',
+    CREATE_ORCAMENTO: (id: string | number) => `/solicitacoes/${id}/criar-orcamento`,
+    UPDATE: (id: string | number) => `/solicitacoes/${id}`,
+  },
+  
   // Lighthouse (avaliação de acessibilidade)
   LIGHTHOUSE: {
     ANALYZE: '/lighthouse/analyze',
