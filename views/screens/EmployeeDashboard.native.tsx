@@ -11,6 +11,7 @@ import { StarRating } from '../components/StarRating.native';
 import { ImageUtils } from '../../utils/ImageUtils';
 import { type User, type AccessibilityRequest } from '../../models';
 import ApiService from '../../services/ApiService';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface EmployeeDashboardProps {
   user: User;
@@ -269,54 +270,186 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
         size: fileSize,
         sizeMB: (fileSize / (1024 * 1024)).toFixed(2),
       });
+      
+      // Verificar se o URI do arquivo está correto
+      if (!fileUri) {
+        throw new Error('URI do arquivo não encontrado');
+      }
+      
+      // No React Native, o URI deve começar com file://
+      if (!fileUri.startsWith('file://') && !fileUri.startsWith('content://')) {
+        console.warn('[EmployeeDashboard] URI do arquivo pode estar incorreto:', fileUri);
+      }
 
       // Criar FormData para upload
       // IMPORTANTE: No React Native, o FormData precisa ser criado de forma específica
       const formData = new FormData();
       
       // FormData para React Native - formato correto
+      // No React Native, precisamos usar o formato específico com uri, type e name
+      // O nome do campo deve ser 'file' para corresponder ao FileInterceptor('file') no backend
       formData.append('file', {
         uri: fileUri,
         type: fileType,
         name: fileName,
       } as any);
+      
+      console.log('[EmployeeDashboard] FormData criado:', {
+        hasFile: formData.has('file'),
+        fileUri,
+        fileName,
+        fileType,
+        fileSize,
+      });
+      
+      // Verificar se o URI do arquivo está correto
+      if (!fileUri) {
+        throw new Error('URI do arquivo não encontrado');
+      }
+      
+      // No React Native, o URI deve começar com file://
+      if (!fileUri.startsWith('file://') && !fileUri.startsWith('content://')) {
+        console.warn('[EmployeeDashboard] URI do arquivo pode estar incorreto:', fileUri);
+      }
 
       // Determinar endpoint baseado no tipo
-      // Nota: O request.id pode ser o ID do orçamento ou contrato dependendo da estrutura
-      // Se sua estrutura for diferente, ajuste aqui para buscar o ID correto
+      // Para orçamentos, usar _codOrcamento (UUID) se disponível
+      // Para contratos, usar _idContrato (UUID) se disponível
       let endpoint = '';
-      const entityId = request.id.toString();
+      let entityId: string;
 
       if (type === 'quote') {
-        // Upload de orçamento - request.id deve ser o cod_orcamento
-        endpoint = `/orcamentos/${entityId}/upload`;
+        // Upload de orçamento - usar _codOrcamento se disponível, senão criar orçamento primeiro
+        const requestAny = request as any;
+        if (requestAny._codOrcamento) {
+          // Já existe orçamento, usar o UUID
+          entityId = requestAny._codOrcamento;
+          endpoint = `/orcamentos/${entityId}/upload`;
+        } else if (requestAny._idSolicitacao) {
+          // É uma solicitação pendente, criar orçamento automaticamente
+          console.log('[EmployeeDashboard] Criando orçamento automaticamente para solicitação:', requestAny._idSolicitacao);
+          
+          try {
+            // ApiService já é uma instância singleton exportada
+            console.log('[EmployeeDashboard] Chamando createOrcamentoFromRequest...');
+            console.log('[EmployeeDashboard] Token disponível:', ApiService.hasToken());
+            const orcamentoResponse = await ApiService.createOrcamentoFromRequest(requestAny._idSolicitacao);
+            
+            if (!orcamentoResponse.success) {
+              // Se o erro for 409 (já existe orçamento), buscar a solicitação para obter o cod_orcamento
+              if (orcamentoResponse.statusCode === 409) {
+                console.log('[EmployeeDashboard] Orçamento já existe, buscando solicitação para obter cod_orcamento...');
+                const solicitacaoResponse = await ApiService.getRequest(requestAny._idSolicitacao);
+                
+                if (solicitacaoResponse.success && solicitacaoResponse.data) {
+                  const solicitacao = solicitacaoResponse.data.data || solicitacaoResponse.data;
+                  entityId = solicitacao.cod_orcamento;
+                  
+                  if (entityId) {
+                    endpoint = `/orcamentos/${entityId}/upload`;
+                    console.log('[EmployeeDashboard] Usando orçamento existente, fazendo upload para:', endpoint);
+                  } else {
+                    throw new Error('Orçamento existe mas não foi possível obter o cod_orcamento');
+                  }
+                } else {
+                  throw new Error('Não foi possível buscar a solicitação para obter o orçamento existente');
+                }
+              } else {
+                throw new Error(orcamentoResponse.error || 'Erro ao criar orçamento');
+              }
+            } else {
+              // Usar o cod_orcamento retornado
+              entityId = orcamentoResponse.data?.cod_orcamento || orcamentoResponse.data?.data?.cod_orcamento;
+              
+              if (!entityId) {
+                throw new Error('Orçamento criado mas não foi possível obter o ID');
+              }
+              
+              endpoint = `/orcamentos/${entityId}/upload`;
+              console.log('[EmployeeDashboard] Orçamento criado com sucesso, fazendo upload para:', endpoint);
+            }
+          } catch (createError) {
+            console.error('[EmployeeDashboard] Erro ao criar/buscar orçamento:', createError);
+            throw new Error(`Erro ao criar/buscar orçamento: ${createError instanceof Error ? createError.message : 'Erro desconhecido'}`);
+          }
+        } else {
+          // Tentar usar o ID numérico - pode ser um UUID que foi convertido incorretamente
+          // Se não funcionar, o backend retornará um erro claro
+          entityId = request.id.toString();
+          endpoint = `/orcamentos/${entityId}/upload`;
+          console.warn('[EmployeeDashboard] Tentando upload com ID numérico - pode não funcionar se o backend esperar UUID');
+        }
       } else {
-        // Upload de contrato - request.id deve ser o id_contrato
+        // Upload de contrato - usar _idContrato se disponível
+        const requestAny = request as any;
+        if (requestAny._idContrato) {
+          entityId = requestAny._idContrato;
+        } else {
+          entityId = request.id.toString();
+        }
         endpoint = `/contratos/${entityId}/upload`;
       }
 
-      console.log(`[EmployeeDashboard] Fazendo upload para: ${endpoint}`);
+      console.log(`[EmployeeDashboard] Fazendo upload para: ${endpoint} (entityId: ${entityId})`);
 
       // Fazer upload do arquivo
       // IMPORTANTE: Não definir Content-Type manualmente - o axios/form-data faz isso automaticamente
       // Com timeout maior para arquivos grandes (5 minutos)
       console.log('[EmployeeDashboard] Iniciando upload...');
       
-      const uploadResponse = await ApiService.post(endpoint, formData, {
+      // Configuração específica para upload de arquivo no React Native
+      // IMPORTANTE: No React Native, não devemos definir headers manualmente para FormData
+      // O axios/form-data faz isso automaticamente com o boundary correto
+      const uploadConfig: any = {
         timeout: 300000, // 5 minutos para arquivos grandes
-        // Não definir Content-Type - deixar o axios/form-data fazer isso
-        transformRequest: (data) => {
-          return data; // Deixar o FormData ser processado pelo axios
-        },
+        // Não definir headers - o interceptador do ApiService já remove Content-Type para FormData
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      };
+      
+      console.log('[EmployeeDashboard] Configuração de upload:', {
+        timeout: uploadConfig.timeout,
+        endpoint,
+        fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)}MB`,
       });
+      
+      // Usar fetch nativo do React Native para uploads (mais confiável que axios com FormData)
+      // ApiService já é uma instância exportada como default
+      const token = ApiService.getAuthToken();
+      const baseURL = API_BASE_URL || 'http://192.168.1.7:3000';
+      const fullUrl = `${baseURL}${endpoint}`;
+      
+      console.log('[EmployeeDashboard] Fazendo upload com fetch nativo para:', fullUrl);
+      
+      const fetchResponse = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          // NÃO definir Content-Type - o fetch faz isso automaticamente para FormData
+        },
+        body: formData,
+      });
+      
+      console.log('[EmployeeDashboard] Resposta do fetch:', {
+        status: fetchResponse.status,
+        statusText: fetchResponse.statusText,
+        ok: fetchResponse.ok,
+      });
+      
+      if (!fetchResponse.ok) {
+        const errorData = await fetchResponse.json().catch(() => ({ message: 'Erro desconhecido' }));
+        throw new Error(errorData.message || `Erro ${fetchResponse.status}: ${fetchResponse.statusText}`);
+      }
+      
+      const responseData = await fetchResponse.json();
+      
+      const uploadResponse = {
+        success: true,
+        data: responseData,
+        statusCode: fetchResponse.status,
+      };
 
       console.log('[EmployeeDashboard] Resposta do upload:', uploadResponse);
-
-      if (!uploadResponse.success) {
-        const errorMsg = uploadResponse.error || 'Erro ao fazer upload';
-        console.error('[EmployeeDashboard] Erro na resposta do upload:', errorMsg);
-        throw new Error(errorMsg);
-      }
 
       // Atualizar solicitação com dados do arquivo
       const fileData = {
