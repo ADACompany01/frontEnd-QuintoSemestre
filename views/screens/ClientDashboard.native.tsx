@@ -172,7 +172,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         selectedIssues,
       };
 
-      await requestController.createRequest(requestData);
+      // Passar o email do cliente para salvar no backend
+      await requestController.createRequest(requestData, user.email);
 
       setEvaluationState({ plan: null, issues: [] });
       setActiveTab('acompanhar');
@@ -198,12 +199,17 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     }
   };
 
-  const handleSignContract = async (requestId: string) => {
+  const handleSignContract = async (requestId: string, signatureBase64?: string) => {
     try {
-      // Cliente assina contrato, muda de 'Contract Sent' para 'Contract Signed'
-      const nextStatus = requestController.getStatusConfig().nextStatus['Contract Sent'];
-      if (nextStatus) {
-        await requestController.updateRequestStatus(Number(requestId), nextStatus);
+      if (signatureBase64) {
+        // Assinar contrato com assinatura digital
+        await requestController.signContract(Number(requestId), signatureBase64);
+      } else {
+        // Fallback: apenas atualizar status (compatibilidade)
+        const nextStatus = requestController.getStatusConfig().nextStatus['Contract Sent'];
+        if (nextStatus) {
+          await requestController.updateRequestStatus(Number(requestId), nextStatus);
+        }
       }
     } catch (error) {
       console.error('Error signing contract:', error);

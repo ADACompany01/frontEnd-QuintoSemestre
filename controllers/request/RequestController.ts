@@ -152,9 +152,13 @@ export class RequestController {
   /**
    * Cria nova solicitação
    * @param requestData - Dados da solicitação
+   * @param clientEmail - Email do cliente (opcional, para salvar no backend)
    * @returns Promise com a solicitação criada
    */
-  async createRequest(requestData: Omit<AccessibilityRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<AccessibilityRequest> {
+  async createRequest(
+    requestData: Omit<AccessibilityRequest, 'id' | 'createdAt' | 'updatedAt'>,
+    clientEmail?: string
+  ): Promise<AccessibilityRequest> {
     this.dispatch({ type: 'SET_LOADING', isLoading: true });
     this.dispatch({ type: 'CLEAR_ERROR' });
 
@@ -166,7 +170,81 @@ export class RequestController {
         throw new Error('Dados da solicitação inválidos');
       }
 
-      // Adiciona à lista
+      // Tentar salvar no backend se o email do cliente foi fornecido
+      if (clientEmail && RequestModel.isUsingApi()) {
+        try {
+          console.log('[RequestController] Tentando salvar solicitação no backend...');
+          
+          // Importar ApiService dinamicamente
+          const ApiService = (await import('../../services/ApiService')).default;
+          
+          // Buscar cliente logado usando endpoint /me (para clientes) ou por email (para funcionários)
+          let clienteResponse;
+          try {
+            // Tentar primeiro o endpoint /me (para clientes)
+            clienteResponse = await ApiService.getMyClient();
+          } catch (error) {
+            // Se falhar, tentar buscar por email (para funcionários)
+            console.log('[RequestController] Endpoint /me não disponível, tentando buscar por email...');
+            clienteResponse = await ApiService.getClientByEmail(clientEmail);
+          }
+          
+          // O endpoint /me retorna { statusCode, message, data: {...} }
+          const clienteData = clienteResponse.data?.data || clienteResponse.data;
+          
+          if (clienteResponse.success && clienteData) {
+            const cliente = clienteData;
+            const clienteId = cliente.id_cliente || cliente.id;
+            
+            // Valores base para os pacotes (pode ser ajustado)
+            const planValues: Record<'A' | 'AA' | 'AAA', number> = {
+              'A': 1000,
+              'AA': 2000,
+              'AAA': 3000
+            };
+            
+            // Criar pacote
+            const pacoteResponse = await ApiService.createPackage({
+              id_cliente: clienteId,
+              tipo_pacote: requestData.plan,
+              valor_base: planValues[requestData.plan] || 2000
+            });
+            
+            if (pacoteResponse.success && pacoteResponse.data) {
+              const pacote = pacoteResponse.data;
+              const pacoteId = pacote.id_pacote || pacote.id;
+              
+              // Criar orçamento
+              const dataAtual = new Date();
+              const dataValidade = new Date();
+              dataValidade.setDate(dataValidade.getDate() + 30);
+              
+              // Usar ApiService diretamente com o formato correto do DTO
+              const orcamentoResponse = await ApiService.createBudget({
+                valor_orcamento: planValues[requestData.plan] || 2000,
+                data_orcamento: dataAtual.toISOString(),
+                data_validade: dataValidade.toISOString(),
+                id_pacote: pacoteId
+              });
+              
+              if (orcamentoResponse.success) {
+                console.log('[RequestController] Solicitação salva no backend com sucesso!');
+              } else {
+                console.warn('[RequestController] Erro ao criar orçamento no backend:', orcamentoResponse.error);
+              }
+            } else {
+              console.warn('[RequestController] Erro ao criar pacote no backend:', pacoteResponse.error);
+            }
+          } else {
+            console.warn('[RequestController] Cliente não encontrado no backend:', clienteResponse.error);
+          }
+        } catch (backendError) {
+          // Não falhar a criação local se houver erro no backend
+          console.error('[RequestController] Erro ao salvar no backend (continuando localmente):', backendError);
+        }
+      }
+
+      // Adiciona à lista local
       this.dispatch({ type: 'ADD_REQUEST', request: tempRequest });
       
       return tempRequest;
@@ -355,6 +433,45 @@ export class RequestController {
   }
 
   /**
+   * Carrega solicitações do backend
+   */
+  async loadRequestsFromApi(): Promise<void> {
+    this.dispatch({ type: 'SET_LOADING', isLoading: true });
+    this.dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      if (!RequestModel.isUsingApi()) {
+        console.log('[RequestController] API desabilitada, usando dados mock');
+        const mockRequests = RequestModel.getInitialRequests();
+        this.dispatch({ type: 'SET_REQUESTS', requests: mockRequests });
+        return;
+      }
+
+      console.log('[RequestController] Carregando solicitações do backend...');
+      const response = await RequestModel.getAllRequests();
+      
+      if (response.success && response.data) {
+        console.log(`[RequestController] ${response.data.length} solicitações carregadas do backend`);
+        this.dispatch({ type: 'SET_REQUESTS', requests: response.data });
+      } else {
+        console.warn('[RequestController] Erro ao carregar solicitações, usando dados mock');
+        const mockRequests = RequestModel.getInitialRequests();
+        this.dispatch({ type: 'SET_REQUESTS', requests: mockRequests });
+      }
+    } catch (error) {
+      console.error('[RequestController] Erro ao carregar solicitações:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao carregar solicitações';
+      this.dispatch({ type: 'SET_ERROR', error: errorMessage });
+      
+      // Fallback para dados mock
+      const mockRequests = RequestModel.getInitialRequests();
+      this.dispatch({ type: 'SET_REQUESTS', requests: mockRequests });
+    } finally {
+      this.dispatch({ type: 'SET_LOADING', isLoading: false });
+    }
+  }
+
+  /**
    * Limpa mensagens de erro
    */
   clearError(): void {
@@ -394,6 +511,58 @@ export class RequestController {
         return request.status === 'In Development';
       default:
         return false;
+    }
+  }
+
+  /**
+   * Assina um contrato digitalmente
+   * @param requestId - ID da solicitação/contrato
+   * @param signatureBase64 - Assinatura em base64
+   * @returns Promise com a solicitação atualizada
+   */
+  async signContract(requestId: number, signatureBase64: string): Promise<AccessibilityRequest> {
+    this.dispatch({ type: 'SET_LOADING', isLoading: true });
+    this.dispatch({ type: 'CLEAR_ERROR' });
+
+    try {
+      const existingRequest = this.requestState.requests.find(req => req.id === requestId);
+      
+      if (!existingRequest) {
+        throw new Error('Solicitação não encontrada');
+      }
+
+      // Importar ApiService dinamicamente para evitar dependência circular
+      const ApiService = (await import('../../services/ApiService')).default;
+      
+      // Chamar API para assinar contrato
+      // Nota: Você precisará obter o ID do contrato a partir da solicitação
+      // Por enquanto, vamos usar o requestId como contratoId
+      const response = await ApiService.signContract(
+        requestId.toString(),
+        signatureBase64
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Erro ao assinar contrato');
+      }
+
+      // Atualizar status da solicitação para 'Contract Signed'
+      const nextStatus = RequestModel.getStatusConfig().nextStatus['Contract Sent'];
+      if (nextStatus) {
+        const updatedRequest = await this.updateRequestStatus(requestId, nextStatus);
+        return updatedRequest;
+      }
+
+      // Se não houver próximo status, apenas retornar a solicitação atualizada
+      this.dispatch({ type: 'UPDATE_REQUEST', request: existingRequest });
+      return existingRequest;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao assinar contrato';
+      this.dispatch({ type: 'SET_ERROR', error: errorMessage });
+      throw error;
+    } finally {
+      this.dispatch({ type: 'SET_LOADING', isLoading: false });
     }
   }
 }

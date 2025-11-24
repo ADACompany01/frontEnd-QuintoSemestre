@@ -2,20 +2,22 @@
  * Timeline - Componente de timeline para acompanhamento de solicitações (React Native)
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { type AccessibilityRequest, type StatusConfig } from '../../models';
+import { SignatureScreen } from '../screens/SignatureScreen.native';
 
 interface TimelineProps {
   request: AccessibilityRequest;
   statusConfig: StatusConfig;
   onApprove?: (requestId: string) => Promise<void>;
-  onSignContract?: (requestId: string) => Promise<void>;
+  onSignContract?: (requestId: string, signatureBase64?: string) => Promise<void>;
 }
 
 export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApprove, onSignContract }) => {
   if (!request) return null;
 
+  const [isSignatureModalVisible, setIsSignatureModalVisible] = useState(false);
   const { status, quoteFile, contractFile, developmentStatus } = request;
   const { steps, map } = statusConfig;
   const currentStepName = map[status] || steps[0];
@@ -76,47 +78,17 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
 
   const handleSignContract = async () => {
     if (!onSignContract) return;
+    setIsSignatureModalVisible(true);
+  };
 
-    Alert.alert(
-      'Assinar Contrato',
-      'Você será redirecionado para o DocuSign para assinar o contrato digitalmente.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Assinar no DocuSign',
-          onPress: async () => {
-            try {
-              // Simular abertura do DocuSign
-              await Linking.openURL('https://www.docusign.com/sign');
-              
-              // Aguardar confirmação
-              setTimeout(async () => {
-                Alert.alert(
-                  'Confirmar Assinatura',
-                  'Você assinou o contrato no DocuSign?',
-                  [
-                    { text: 'Não', style: 'cancel' },
-                    {
-                      text: 'Sim, Assinado',
-                      onPress: async () => {
-                        try {
-                          await onSignContract(request.id.toString());
-                          Alert.alert('Sucesso!', 'Contrato assinado! O projeto entrará em desenvolvimento.');
-                        } catch (error) {
-                          Alert.alert('Erro', 'Erro ao confirmar assinatura.');
-                        }
-                      },
-                    },
-                  ]
-                );
-              }, 2000);
-            } catch (error) {
-              Alert.alert('Erro', 'Erro ao abrir DocuSign.');
-            }
-          },
-        },
-      ]
-    );
+  const handleSaveSignature = async (signatureBase64: string) => {
+    try {
+      await onSignContract(request.id.toString(), signatureBase64);
+      Alert.alert('Sucesso!', 'Contrato assinado! O projeto entrará em desenvolvimento.');
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao assinar contrato. Tente novamente.');
+      throw error;
+    }
   };
 
   return (
@@ -204,7 +176,7 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
                         style={styles.signButton}
                         onPress={handleSignContract}
                       >
-                        <Text style={styles.signButtonText}>✍️ Assinar no DocuSign</Text>
+                        <Text style={styles.signButtonText}>✍️ Assinar Contrato</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -290,6 +262,14 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
           </View>
         );
       })}
+
+      {/* Modal de Assinatura */}
+      <SignatureScreen
+        visible={isSignatureModalVisible}
+        onClose={() => setIsSignatureModalVisible(false)}
+        onSave={handleSaveSignature}
+        contractName={`Contrato - ${request.site || 'Projeto'}`}
+      />
     </View>
   );
 };
