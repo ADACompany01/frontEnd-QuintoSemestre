@@ -10,6 +10,7 @@
  */
 
 import ApiService from '../../services/ApiService';
+import { API_BASE_URL } from '../../config/api.config';
 
 export interface ChecklistItem {
   text: string;
@@ -182,8 +183,9 @@ export class RequestModel {
 
       console.log('[RequestModel] Buscando solicitações via API...');
 
-      // Buscar orçamentos e contratos em paralelo
-      const [budgetsResponse, contractsResponse] = await Promise.all([
+      // Buscar solicitações, orçamentos e contratos em paralelo
+      const [requestsResponse, budgetsResponse, contractsResponse] = await Promise.all([
+        this.api.getRequests().catch(() => ({ success: false, data: [] })), // Se falhar, usar array vazio
         this.api.getBudgets(),
         this.api.getContracts()
       ]);
@@ -193,8 +195,90 @@ export class RequestModel {
         return { success: true, data: this.getInitialRequests() };
       }
 
-      // Combinar orçamentos e contratos em solicitações
+      // Combinar solicitações, orçamentos e contratos
       const requests: AccessibilityRequest[] = [];
+
+      // Processar solicitações pendentes (criadas por clientes)
+      if (requestsResponse.success && requestsResponse.data) {
+        const requestsArray = Array.isArray(requestsResponse.data) 
+          ? requestsResponse.data 
+          : (requestsResponse.data.data || []);
+        
+        requestsArray.forEach((solicitacao: any) => {
+          // Processar todas as solicitações, não apenas PENDENTE ou EM_ANALISE
+          const cliente = solicitacao.cliente;
+          const id = solicitacao.id_solicitacao 
+            ? Math.abs(solicitacao.id_solicitacao.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % 1000000000
+            : Date.now();
+          
+          // Mapear status do backend para status do frontend
+          let status: RequestStatus = 'Awaiting Quote';
+          if (solicitacao.status === 'ORCAMENTO_CRIADO') {
+            status = 'Quote Sent';
+          } else if (solicitacao.status === 'ORCAMENTO_APROVADO') {
+            status = 'Quote Approved';
+          } else if (solicitacao.status === 'PENDENTE' || solicitacao.status === 'EM_ANALISE') {
+            status = 'Awaiting Quote';
+          }
+          
+          // Se já tem orçamento criado, buscar informações do orçamento
+          let quoteFile: { name: string; url: string } | undefined;
+          if (solicitacao.cod_orcamento) {
+            // Tentar encontrar o orçamento na lista de orçamentos já carregados
+            const budgetsArray = Array.isArray(budgetsResponse.data) 
+              ? budgetsResponse.data 
+              : (budgetsResponse.data?.data || []);
+            
+            const orcamento = budgetsArray.find((b: any) => 
+              (b.cod_orcamento || b.id) === solicitacao.cod_orcamento
+            );
+            
+            if (orcamento?.arquivo_orcamento) {
+              // Construir URL completa do arquivo
+              const apiBaseUrl = API_BASE_URL || 'http://192.168.1.7:3000';
+              let filePath = orcamento.arquivo_orcamento;
+              
+              // Se não começar com http, construir URL completa
+              if (!filePath.startsWith('http')) {
+                // Se já começar com /uploads, usar diretamente
+                if (filePath.startsWith('/uploads/')) {
+                  filePath = `${apiBaseUrl}${filePath}`;
+                } else if (filePath.startsWith('uploads/')) {
+                  filePath = `${apiBaseUrl}/${filePath}`;
+                } else {
+                  // Caso contrário, assumir que está em /uploads/
+                  filePath = `${apiBaseUrl}/uploads/${filePath}`;
+                }
+              }
+              
+              quoteFile = {
+                name: orcamento.arquivo_orcamento.split('/').pop() || 'orcamento.pdf',
+                url: filePath
+              };
+              
+              console.log('[RequestModel] Arquivo de orçamento encontrado:', {
+                originalPath: orcamento.arquivo_orcamento,
+                finalUrl: filePath,
+                quoteFile
+              });
+            }
+          }
+          
+          requests.push({
+            id,
+            clientName: cliente?.nome_completo || 'Cliente Desconhecido',
+            site: solicitacao.site || '',
+            plan: this.mapPlanFromBackend(solicitacao.tipo_pacote),
+            status,
+            quoteFile,
+            selectedIssues: solicitacao.selected_issues || [],
+            createdAt: solicitacao.createdAt ? new Date(solicitacao.createdAt) : new Date(),
+            updatedAt: solicitacao.updatedAt ? new Date(solicitacao.updatedAt) : new Date(),
+            _idSolicitacao: solicitacao.id_solicitacao,
+            _codOrcamento: solicitacao.cod_orcamento
+          } as any);
+        });
+      }
 
       // Processar orçamentos
       if (budgetsResponse.success && budgetsResponse.data) {
@@ -219,10 +303,16 @@ export class RequestModel {
             site: budget.site || '',
             plan: this.mapPlanFromBackend(budget.pacote?.tipo_pacote),
             status: 'Quote Sent',
-            quoteFile: budget.arquivo_orcamento ? {
-              name: budget.arquivo_orcamento.split('/').pop() || 'orcamento.pdf',
-              url: budget.arquivo_orcamento
-            } : undefined,
+            quoteFile: budget.arquivo_orcamento ? (() => {
+              const apiBaseUrl = API_BASE_URL || 'http://192.168.1.7:3000';
+              const filePath = budget.arquivo_orcamento.startsWith('http') 
+                ? budget.arquivo_orcamento 
+                : `${apiBaseUrl}/${budget.arquivo_orcamento}`;
+              return {
+                name: budget.arquivo_orcamento.split('/').pop() || 'orcamento.pdf',
+                url: filePath
+              };
+            })() : undefined,
             selectedIssues: [],
             createdAt: budget.createdAt ? new Date(budget.createdAt) : (budget.created_at ? new Date(budget.created_at) : new Date()),
             updatedAt: budget.updatedAt ? new Date(budget.updatedAt) : (budget.updated_at ? new Date(budget.updated_at) : new Date()),
