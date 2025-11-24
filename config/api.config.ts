@@ -18,8 +18,8 @@ const LOCAL_IP = '192.168.50.58'; // IP da máquina na rede local (visto no Expo
 // Em produção (Render): https://backend-adacompany.onrender.com
 
 export const API_BASE_URL = __DEV__ 
-  ? `http://${LOCAL_IP}:3000`  // Desenvolvimento (funciona em web, Android e iOS)
-  : 'https://backend-adacompany.onrender.com'; // Produção
+  ? 'http://adacompany.duckdns.org/api/mobile'  // Desenvolvimento (funciona em web, Android e iOS)
+  : `http://${LOCAL_IP}:3000`; // Produção
 
 // Timeout para requisições (em milissegundos)
 export const API_TIMEOUT = 120000; // 120 segundos (2 minutos) - Lighthouse pode demorar

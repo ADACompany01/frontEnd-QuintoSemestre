@@ -9,12 +9,12 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -88,7 +88,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
     try {
       console.log('[RegisterScreen] Registrando usuário...');
-      
+
       const response = await ApiService.register({
         name: name.trim(),
         email: email.trim().toLowerCase(),
@@ -100,7 +100,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       if (response.success && response.data) {
         console.log('[RegisterScreen] Registro bem-sucedido!');
         console.log('[RegisterScreen] Dados recebidos:', response.data);
-        
+
         // Mapear resposta do backend para formato esperado pelo frontend
         const user = {
           id: response.data.user?.id,
@@ -108,10 +108,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           email: response.data.user?.email || email.trim(),
           type: response.data.user?.tipo === 'funcionario' ? 'employee' : 'client',
         };
-        
+
         console.log('[RegisterScreen] Usuário mapeado:', user);
         console.log('[RegisterScreen] Token recebido:', response.data.token ? 'Sim' : 'Não');
-        
+
         // O token já foi salvo pelo ApiService, então o usuário já está autenticado
         Alert.alert(
           '✅ Sucesso!',
@@ -134,7 +134,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     }
   };
 
-  return (
+return (
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -269,11 +269,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             </View>
 
             {/* Error message */}
-            {error && (
+            {error ? (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
-            )}
+            ) : null}
 
             {/* Submit button */}
             <TouchableOpacity
