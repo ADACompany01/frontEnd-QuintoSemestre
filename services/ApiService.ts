@@ -50,12 +50,18 @@ export class ApiService {
       (config) => {
         if (this.authToken) {
           config.headers.Authorization = `Bearer ${this.authToken}`;
+          console.log('[API] Token JWT adicionado à requisição');
+        } else {
+          console.warn('[API] Token JWT não encontrado - requisição será feita sem autenticação');
         }
         
         // Para FormData, remover Content-Type para deixar o browser/axios definir automaticamente
         // Isso é necessário para que o boundary seja adicionado corretamente
         if (config.data instanceof FormData) {
           delete config.headers['Content-Type'];
+          // No React Native, garantir que não há Content-Type definido
+          delete config.headers['content-type'];
+          console.log('[API] FormData detectado - Content-Type removido para permitir boundary automático');
         }
         
         console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
@@ -81,6 +87,7 @@ export class ApiService {
 
   /**
    * Trata erros de resposta da API
+   * NOTA: Este método é usado no interceptor e sempre rejeita a Promise
    */
   private handleResponseError(error: AxiosError): Promise<never> {
     if (error.response) {
@@ -89,11 +96,21 @@ export class ApiService {
       const data: any = error.response.data;
       
       console.error(`[API] Erro ${status}:`, data);
+      
+      // Extrair mensagem de erro do backend
+      let errorMessage = 'Erro na requisição';
+      if (typeof data === 'string') {
+        errorMessage = data;
+      } else if (data?.message) {
+        errorMessage = Array.isArray(data.message) ? data.message[0] : data.message;
+      } else if (data?.error) {
+        errorMessage = data.error;
+      }
 
+      // Tratar casos específicos de status
       switch (status) {
         case HTTP_STATUS.UNAUTHORIZED:
           // Verificar se é erro de autenticação ou apenas de permissão
-          const errorMessage = data?.message || '';
           if (errorMessage.includes('Acesso negado') || errorMessage.includes('permissão')) {
             // É apenas erro de permissão, não remover token
             console.error('[API] Acesso negado - permissão insuficiente');
@@ -119,15 +136,64 @@ export class ApiService {
           console.error('[API] Erro interno do servidor');
           break;
       }
+      
+      // Rejeitar com objeto formatado incluindo statusCode
+      return Promise.reject({
+        success: false,
+        error: errorMessage,
+        statusCode: status,
+        originalError: error,
+      });
     } else if (error.request) {
       // Requisição foi feita mas não houve resposta
       console.error('[API] Sem resposta do servidor:', error.message);
+      console.error('[API] Detalhes da requisição:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+        timeout: error.config?.timeout,
+      });
+      
+      // Verificar se é um erro de rede ou timeout
+      // NOTA: Este método é usado no interceptor e sempre rejeita a Promise
+      // O método handleError (usado nos métodos HTTP) converte isso em ApiResponse
+      if (error.code === 'ECONNABORTED') {
+        return Promise.reject({
+          success: false,
+          error: 'Timeout - a requisição demorou muito para responder',
+          statusCode: 408,
+        });
+      } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        return Promise.reject({
+          success: false,
+          error: 'Erro de rede - verifique sua conexão com o servidor',
+          statusCode: 0,
+          originalError: error, // Preservar erro original para extrair statusCode se necessário
+        });
+      }
+      
+      // Erro genérico de requisição sem resposta
+      return Promise.reject({
+        success: false,
+        error: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+        statusCode: 0,
+      });
     } else {
       // Erro ao configurar a requisição
       console.error('[API] Erro ao configurar requisição:', error.message);
+      return Promise.reject({
+        success: false,
+        error: `Erro ao configurar requisição: ${error.message}`,
+        statusCode: 0,
+      });
     }
 
-    return Promise.reject(error);
+    // Se chegou aqui, rejeitar com erro genérico
+    return Promise.reject({
+      success: false,
+      error: error.message || 'Erro desconhecido',
+      statusCode: 0,
+    });
   }
 
   /**
@@ -135,7 +201,14 @@ export class ApiService {
    */
   setAuthToken(token: string): void {
     this.authToken = token;
-    console.log('[API] Token de autenticação definido');
+    console.log('[API] Token de autenticação definido:', token ? `${token.substring(0, 20)}...` : 'null');
+  }
+  
+  /**
+   * Verifica se há token definido
+   */
+  hasToken(): boolean {
+    return !!this.authToken;
   }
 
   /**
@@ -177,10 +250,35 @@ export class ApiService {
   }
 
   /**
+   * Método PATCH genérico
+   */
+  async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    try {
+      const response: AxiosResponse<T> = await this.axiosInstance.patch(url, data, config);
+      return {
+        success: true,
+        data: response.data,
+        statusCode: response.status,
+      };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * Método POST genérico
    */
   async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
+      // Log adicional para FormData
+      if (data instanceof FormData) {
+        console.log('[API] Enviando FormData para:', url);
+        // Verificar se o FormData tem dados
+        if (config?.headers) {
+          console.log('[API] Headers configurados:', Object.keys(config.headers));
+        }
+      }
+      
       const response: AxiosResponse<T> = await this.axiosInstance.post(url, data, config);
       return {
         success: true,
@@ -188,6 +286,17 @@ export class ApiService {
         statusCode: response.status,
       };
     } catch (error) {
+      // Log adicional para erros de upload
+      if (data instanceof FormData) {
+        console.error('[API] Erro ao enviar FormData:', error);
+        if ((error as any).request) {
+          console.error('[API] Detalhes da requisição:', {
+            url: (error as any).config?.url,
+            method: (error as any).config?.method,
+            headers: (error as any).config?.headers,
+          });
+        }
+      }
       return this.handleError(error);
     }
   }
@@ -244,6 +353,19 @@ export class ApiService {
    * Trata erros e retorna ApiResponse padronizada
    */
   private handleError(error: any): ApiResponse {
+    // Se o erro já foi formatado pelo handleResponseError (tem success, error, statusCode)
+    if (error && typeof error === 'object' && 'success' in error && 'error' in error) {
+      // Se o statusCode não foi definido, tentar extrair do erro original
+      if (!error.statusCode && error.originalError) {
+        const originalError = error.originalError;
+        if (axios.isAxiosError(originalError) && originalError.response) {
+          error.statusCode = originalError.response.status;
+        }
+      }
+      console.log('[API] Erro já formatado pelo handleResponseError:', error);
+      return error as ApiResponse;
+    }
+    
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError;
       
@@ -271,9 +393,25 @@ export class ApiService {
         };
       } else if (axiosError.request) {
         // Sem resposta do servidor
+        // Verificar se é um erro de rede ou timeout
+        if (axiosError.code === 'ECONNABORTED') {
+          return {
+            success: false,
+            error: 'Timeout - a requisição demorou muito para responder',
+            statusCode: 408,
+          };
+        } else if (axiosError.code === 'ERR_NETWORK' || axiosError.message.includes('Network Error')) {
+          return {
+            success: false,
+            error: 'Erro de rede - verifique sua conexão com o servidor',
+            statusCode: 0,
+          };
+        }
+        
         return {
           success: false,
           error: 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+          statusCode: 0,
         };
       }
     }
@@ -486,6 +624,55 @@ export class ApiService {
       contrato_id: contratoId,
       signature: signatureBase64,
     });
+  }
+
+  /**
+   * Busca todas as solicitações (apenas funcionários)
+   */
+  async getRequests(): Promise<ApiResponse<any[]>> {
+    return this.get(API_ENDPOINTS.REQUESTS.BASE);
+  }
+
+  /**
+   * Busca solicitações do cliente logado
+   */
+  async getMyRequests(): Promise<ApiResponse<any[]>> {
+    return this.get(API_ENDPOINTS.REQUESTS.MY);
+  }
+
+  /**
+   * Cria nova solicitação de orçamento (apenas clientes)
+   */
+  async createRequest(requestData: {
+    site: string;
+    tipo_pacote: 'A' | 'AA' | 'AAA';
+    observacoes?: string;
+    selected_issues?: any[];
+  }): Promise<ApiResponse<any>> {
+    return this.post(API_ENDPOINTS.REQUESTS.BASE, requestData);
+  }
+
+  /**
+   * Busca uma solicitação por ID
+   */
+  async getRequest(id: string): Promise<ApiResponse<any>> {
+    return this.get(API_ENDPOINTS.REQUESTS.BY_ID(id));
+  }
+
+  /**
+   * Cria orçamento automaticamente a partir de uma solicitação
+   */
+  async createOrcamentoFromRequest(solicitacaoId: string, valorOrcamento?: number): Promise<ApiResponse<any>> {
+    return this.post(API_ENDPOINTS.REQUESTS.CREATE_ORCAMENTO(solicitacaoId), {
+      valor_orcamento: valorOrcamento,
+    });
+  }
+
+  /**
+   * Atualiza uma solicitação
+   */
+  async updateSolicitacao(solicitacaoId: string, data: { status?: string; observacoes?: string }): Promise<ApiResponse<any>> {
+    return this.patch(API_ENDPOINTS.REQUESTS.UPDATE(solicitacaoId), data);
   }
 }
 
