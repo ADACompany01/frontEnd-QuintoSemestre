@@ -178,65 +178,18 @@ export class RequestController {
           // Importar ApiService dinamicamente
           const ApiService = (await import('../../services/ApiService')).default;
           
-          // Buscar cliente logado usando endpoint /me (para clientes) ou por email (para funcionários)
-          let clienteResponse;
-          try {
-            // Tentar primeiro o endpoint /me (para clientes)
-            clienteResponse = await ApiService.getMyClient();
-          } catch (error) {
-            // Se falhar, tentar buscar por email (para funcionários)
-            console.log('[RequestController] Endpoint /me não disponível, tentando buscar por email...');
-            clienteResponse = await ApiService.getClientByEmail(clientEmail);
-          }
+          // Criar solicitação no backend
+          const solicitacaoResponse = await ApiService.createRequest({
+            site: requestData.site,
+            tipo_pacote: requestData.plan,
+            observacoes: `Solicitação para o site: ${requestData.site}`,
+            selected_issues: requestData.selectedIssues,
+          });
           
-          // O endpoint /me retorna { statusCode, message, data: {...} }
-          const clienteData = clienteResponse.data?.data || clienteResponse.data;
-          
-          if (clienteResponse.success && clienteData) {
-            const cliente = clienteData;
-            const clienteId = cliente.id_cliente || cliente.id;
-            
-            // Valores base para os pacotes (pode ser ajustado)
-            const planValues: Record<'A' | 'AA' | 'AAA', number> = {
-              'A': 1000,
-              'AA': 2000,
-              'AAA': 3000
-            };
-            
-            // Criar pacote
-            const pacoteResponse = await ApiService.createPackage({
-              id_cliente: clienteId,
-              tipo_pacote: requestData.plan,
-              valor_base: planValues[requestData.plan] || 2000
-            });
-            
-            if (pacoteResponse.success && pacoteResponse.data) {
-              const pacote = pacoteResponse.data;
-              const pacoteId = pacote.id_pacote || pacote.id;
-              
-              // Criar orçamento
-              const dataAtual = new Date();
-              const dataValidade = new Date();
-              dataValidade.setDate(dataValidade.getDate() + 30);
-              
-              // Usar ApiService diretamente com o formato correto do DTO
-              const orcamentoResponse = await ApiService.createBudget({
-                valor_orcamento: planValues[requestData.plan] || 2000,
-                data_orcamento: dataAtual.toISOString(),
-                data_validade: dataValidade.toISOString(),
-                id_pacote: pacoteId
-              });
-              
-              if (orcamentoResponse.success) {
-                console.log('[RequestController] Solicitação salva no backend com sucesso!');
-              } else {
-                console.warn('[RequestController] Erro ao criar orçamento no backend:', orcamentoResponse.error);
-              }
-            } else {
-              console.warn('[RequestController] Erro ao criar pacote no backend:', pacoteResponse.error);
-            }
+          if (solicitacaoResponse.success) {
+            console.log('[RequestController] Solicitação salva no backend com sucesso!');
           } else {
-            console.warn('[RequestController] Cliente não encontrado no backend:', clienteResponse.error);
+            console.warn('[RequestController] Erro ao criar solicitação no backend:', solicitacaoResponse.error);
           }
         } catch (backendError) {
           // Não falhar a criação local se houver erro no backend
