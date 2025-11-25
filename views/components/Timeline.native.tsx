@@ -2,20 +2,23 @@
  * Timeline - Componente de timeline para acompanhamento de solicitações (React Native)
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { type AccessibilityRequest, type StatusConfig } from '../../models';
+import { SignatureScreen } from '../screens/SignatureScreen.native';
 
 interface TimelineProps {
   request: AccessibilityRequest;
   statusConfig: StatusConfig;
   onApprove?: (requestId: string) => Promise<void>;
-  onSignContract?: (requestId: string) => Promise<void>;
+  onReject?: (requestId: string) => Promise<void>;
+  onSignContract?: (requestId: string, signatureBase64?: string) => Promise<void>;
 }
 
-export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApprove, onSignContract }) => {
+export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApprove, onReject, onSignContract }) => {
   if (!request) return null;
 
+  const [isSignatureModalVisible, setIsSignatureModalVisible] = useState(false);
   const { status, quoteFile, contractFile, developmentStatus } = request;
   const { steps, map } = statusConfig;
   const currentStepName = map[status] || steps[0];
@@ -64,7 +67,6 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
           onPress: async () => {
             try {
               await onApprove(request.id.toString());
-              Alert.alert('Sucesso!', 'Orçamento aprovado! Aguarde o contrato.');
             } catch (error) {
               Alert.alert('Erro', 'Erro ao aprovar orçamento. Tente novamente.');
             }
@@ -74,49 +76,42 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
     );
   };
 
-  const handleSignContract = async () => {
-    if (!onSignContract) return;
+  const handleReject = async () => {
+    if (!onReject) return;
 
     Alert.alert(
-      'Assinar Contrato',
-      'Você será redirecionado para o DocuSign para assinar o contrato digitalmente.',
+      'Recusar Orçamento',
+      'Deseja realmente recusar este orçamento? Você precisará criar uma nova solicitação.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Assinar no DocuSign',
+          text: 'Recusar',
+          style: 'destructive',
           onPress: async () => {
             try {
-              // Simular abertura do DocuSign
-              await Linking.openURL('https://www.docusign.com/sign');
-              
-              // Aguardar confirmação
-              setTimeout(async () => {
-                Alert.alert(
-                  'Confirmar Assinatura',
-                  'Você assinou o contrato no DocuSign?',
-                  [
-                    { text: 'Não', style: 'cancel' },
-                    {
-                      text: 'Sim, Assinado',
-                      onPress: async () => {
-                        try {
-                          await onSignContract(request.id.toString());
-                          Alert.alert('Sucesso!', 'Contrato assinado! O projeto entrará em desenvolvimento.');
-                        } catch (error) {
-                          Alert.alert('Erro', 'Erro ao confirmar assinatura.');
-                        }
-                      },
-                    },
-                  ]
-                );
-              }, 2000);
+              await onReject(request.id.toString());
             } catch (error) {
-              Alert.alert('Erro', 'Erro ao abrir DocuSign.');
+              Alert.alert('Erro', 'Erro ao recusar orçamento. Tente novamente.');
             }
           },
         },
       ]
     );
+  };
+
+  const handleSignContract = async () => {
+    if (!onSignContract) return;
+    setIsSignatureModalVisible(true);
+  };
+
+  const handleSaveSignature = async (signatureBase64: string) => {
+    try {
+      await onSignContract(request.id.toString(), signatureBase64);
+      Alert.alert('Sucesso!', 'Contrato assinado! O projeto entrará em desenvolvimento.');
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao assinar contrato. Tente novamente.');
+      throw error;
+    }
   };
 
   return (
@@ -198,13 +193,23 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
                       </TouchableOpacity>
                     )}
 
+                    {/* Reject button for quote */}
+                    {canApproveQuote(step, index) && onReject && (
+                      <TouchableOpacity
+                        style={styles.rejectButton}
+                        onPress={handleReject}
+                      >
+                        <Text style={styles.rejectButtonText}>❌ Recusar Orçamento</Text>
+                      </TouchableOpacity>
+                    )}
+
                     {/* Sign contract button */}
                     {canSignContract(step, index) && onSignContract && (
                       <TouchableOpacity
                         style={styles.signButton}
                         onPress={handleSignContract}
                       >
-                        <Text style={styles.signButtonText}>✍️ Assinar no DocuSign</Text>
+                        <Text style={styles.signButtonText}>✍️ Assinar Contrato</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -290,6 +295,14 @@ export const Timeline: React.FC<TimelineProps> = ({ request, statusConfig, onApp
           </View>
         );
       })}
+
+      {/* Modal de Assinatura */}
+      <SignatureScreen
+        visible={isSignatureModalVisible}
+        onClose={() => setIsSignatureModalVisible(false)}
+        onSave={handleSaveSignature}
+        contractName={`Contrato - ${request.site || 'Projeto'}`}
+      />
     </View>
   );
 };
@@ -413,6 +426,24 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   approveButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  rejectButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+    marginLeft: 8,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  rejectButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',

@@ -80,25 +80,23 @@ export class IndexedDBAdapter implements StorageAdapter {
     try {
       const transaction = db.transaction(['users', 'company_settings'], 'readwrite');
       
-      // Inserir usuários mock
+      // Dados iniciais removidos por segurança
+      // As credenciais de teste estão documentadas no README.md
+      
+      // IMPORTANTE: Remover usuários de teste antigos que possam estar no banco
+      // Isso garante que dados mock não persistam após a remoção do código
       const userStore = transaction.objectStore('users');
-      userStore.add({
-        type: 'client',
-        name: 'Alex Doe',
-        email: 'client@example.com',
-        password: 'password123',
-        photo_path: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-      userStore.add({
-        type: 'employee',
-        name: 'Jane Smith',
-        email: 'employee@example.com',
-        password: 'password123',
-        photo_path: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+      const testEmails = ['client@example.com', 'employee@example.com'];
+      
+      // IndexedDB não suporta DELETE direto com WHERE, então precisamos buscar e deletar
+      testEmails.forEach((email) => {
+        const index = userStore.index('email');
+        const request = index.get(email);
+        request.onsuccess = () => {
+          if (request.result) {
+            userStore.delete(request.result.id);
+          }
+        };
       });
 
       // Inserir configurações

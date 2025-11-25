@@ -126,15 +126,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               />
             </View>
 
-            {/* Demo credentials info */}
-            <View style={styles.demoInfo}>
-              <Text style={styles.demoText}>
-                💡 Credenciais de teste:{'\n'}
-                <Text style={styles.demoBold}>client@example.com</Text> ou{'\n'}
-                <Text style={styles.demoBold}>employee@example.com</Text>
-              </Text>
-            </View>
-
             {/* Error message */}
             {authState.error && (
               <View style={styles.errorContainer}>
@@ -260,23 +251,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: 'white',
     color: '#1f2937',
-  },
-  demoInfo: {
-    backgroundColor: '#f0f4ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#6366f1',
-    borderRadius: 8,
-    padding: 12,
-  },
-  demoText: {
-    fontSize: 12,
-    color: '#4338ca',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  demoBold: {
-    fontWeight: 'bold',
-    color: '#312e81',
   },
   errorContainer: {
     backgroundColor: '#fef2f2',

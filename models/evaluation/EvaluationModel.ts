@@ -85,13 +85,10 @@ export class EvaluationModel {
       // Tentar usar a API primeiro
       if (this.USE_API) {
         try {
-          console.log('[EvaluationModel] Avaliando site via API Lighthouse...');
           const apiResponse = await this.api.analyzeSiteAccessibility(siteUrl);
 
           if (apiResponse.success && apiResponse.data) {
             const lighthouseData = apiResponse.data;
-            
-            console.log('[EvaluationModel] Resposta da API:', lighthouseData);
             
             // Verificar se recebemos dados no formato do backend (notaAcessibilidade)
             if (lighthouseData.notaAcessibilidade !== undefined) {
@@ -133,11 +130,8 @@ export class EvaluationModel {
                 .sort((a, b) => (b.priority || 0) - (a.priority || 0))
                 .slice(0, 10);
 
-              console.log(`[EvaluationModel] ✅ Avaliação REAL concluída: ${score}% de acessibilidade`);
-              console.log(`[EvaluationModel] Total de problemas encontrados: ${topIssues.length}`);
-              console.log(`[EvaluationModel] Reprovadas: ${lighthouseData.reprovadas?.length || 0}`);
-              console.log(`[EvaluationModel] Aprovadas: ${lighthouseData.aprovadas?.length || 0}`);
-              console.log(`[EvaluationModel] Manuais: ${lighthouseData.manuais?.length || 0}`);
+              // Log resumido apenas (sem dados completos)
+              console.log(`[EvaluationModel] ✅ Avaliação concluída: ${score}% de acessibilidade`);
               
               return {
                 score,
@@ -186,21 +180,9 @@ export class EvaluationModel {
             console.error('[EvaluationModel] ❌ Erro da API:', errorMsg);
             console.error('[EvaluationModel] Status Code:', apiResponse.statusCode);
             
-            // Se for BAD_REQUEST (400), a mensagem do backend já é descritiva
-            if (apiResponse.statusCode === 400) {
-              throw new Error(errorMsg);
-            }
-            
-            // Para outros erros, verificar se é erro de URL inacessível
-            if (errorMsg.includes('Lighthouse') || 
-                errorMsg.includes('timeout') || 
-                errorMsg.includes('ENOTFOUND') ||
-                errorMsg.includes('não pôde ser acessada') ||
-                errorMsg.includes('não foi possível conectar')) {
-              throw new Error(errorMsg);
-            }
-            
-            throw new Error(errorMsg);
+            // Transformar mensagem técnica em mensagem amigável ao usuário
+            const friendlyMessage = this.getFriendlyErrorMessage(errorMsg);
+            throw new Error(friendlyMessage);
           }
           
           console.warn('[EvaluationModel] ⚠️ Resposta da API em formato não reconhecido');
@@ -208,10 +190,12 @@ export class EvaluationModel {
         } catch (apiError) {
           console.error('[EvaluationModel] ❌ Erro ao avaliar site:', apiError);
           
-          // Re-lançar o erro para o controlador tratar
-          throw apiError instanceof Error 
-            ? apiError 
-            : new Error('Erro ao avaliar site. Tente novamente.');
+          // Transformar mensagem técnica em mensagem amigável
+          const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+          const friendlyMessage = this.getFriendlyErrorMessage(errorMessage);
+          
+          // Re-lançar o erro com mensagem amigável
+          throw new Error(friendlyMessage);
         }
       }
 
@@ -387,6 +371,45 @@ export class EvaluationModel {
       'AAA': 'Nível avançado de acessibilidade - requisitos máximos'
     };
     return descriptions[level];
+  }
+
+  /**
+   * Transforma mensagens técnicas de erro em mensagens amigáveis ao usuário
+   * Remove referências técnicas como "Lighthouse" e torna a mensagem mais clara
+   */
+  private static getFriendlyErrorMessage(errorMessage: string): string {
+    const lowerError = errorMessage.toLowerCase();
+    
+    // Erros de URL inacessível
+    if (lowerError.includes('não pôde ser acessada') || 
+        lowerError.includes('não foi possível conectar') ||
+        lowerError.includes('enotfound') ||
+        lowerError.includes('econnrefused') ||
+        lowerError.includes('timeout') ||
+        lowerError.includes('err_name_not_resolved') ||
+        lowerError.includes('err_connection')) {
+      // Extrair URL da mensagem se possível
+      const urlMatch = errorMessage.match(/URL\s+"([^"]+)"/);
+      if (urlMatch) {
+        return `Não foi possível acessar o site "${urlMatch[1]}". Verifique se o endereço está correto e se o site está online.`;
+      }
+      return 'Não foi possível acessar o site. Verifique se o endereço está correto e se o site está online.';
+    }
+    
+    // Remover referências técnicas
+    let friendlyMsg = errorMessage
+      .replace(/erro ao executar o lighthouse:/gi, '')
+      .replace(/lighthouse/gi, 'análise')
+      .replace(/não foi possível analisar o site/gi, 'Não foi possível analisar o site')
+      .trim();
+    
+    // Se a mensagem ficou vazia ou muito técnica, usar mensagem genérica
+    if (!friendlyMsg || friendlyMsg.length < 10) {
+      return 'Não foi possível analisar o site. Verifique se a URL está correta e tente novamente.';
+    }
+    
+    // Capitalizar primeira letra
+    return friendlyMsg.charAt(0).toUpperCase() + friendlyMsg.slice(1);
   }
 
   /**

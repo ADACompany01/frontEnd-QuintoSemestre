@@ -54,15 +54,8 @@ export class UserModel {
         return { success: false, error: 'Email e senha são obrigatórios' };
       }
 
-      // Detectar credenciais de teste e usar banco local diretamente
-      const isTestCredential = email === 'client@example.com' || email === 'employee@example.com';
-      
-      if (isTestCredential) {
-        console.log('[UserModel] Credencial de teste detectada, usando banco local...');
-      }
-
-      // Tentar usar a API primeiro (exceto para credenciais de teste)
-      if (this.USE_API && !isTestCredential) {
+      // Tentar usar a API primeiro
+      if (this.USE_API) {
         try {
           console.log('[UserModel] Tentando login via API...');
           const apiResponse = await this.api.login(email, password);

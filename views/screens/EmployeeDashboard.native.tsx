@@ -5,10 +5,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, TextInput, Image, Modal, AppState } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { RequestController, ImageController } from '../../controllers';
 import { StarRating } from '../components/StarRating.native';
 import { ImageUtils } from '../../utils/ImageUtils';
 import { type User, type AccessibilityRequest } from '../../models';
+import ApiService from '../../services/ApiService';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface EmployeeDashboardProps {
   user: User;
@@ -28,11 +31,25 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   const [requestState, setRequestState] = useState(requestController.getState());
   const [uploadingFileFor, setUploadingFileFor] = useState<{ type: 'quote' | 'contract'; request: AccessibilityRequest } | null>(null);
   const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerResult | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const appState = useRef(AppState.currentState);
   const [appStateVisible, setAppStateVisible] = useState(appState.current);
 
   useEffect(() => {
     const unsubscribeRequest = requestController.subscribe(setRequestState);
+    
+    // Carregar solicitações do backend quando o componente é montado
+    const loadRequests = async () => {
+      try {
+        await requestController.loadRequestsFromApi();
+      } catch (error) {
+        console.error('[EmployeeDashboard] Erro ao carregar solicitações:', error);
+      }
+    };
+    
+    loadRequests();
+    
     return () => {
       unsubscribeRequest();
     };
@@ -131,33 +148,331 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     }
   };
 
-  const handleFileSelect = () => {
-    // Simular seleção de arquivo
-    const mockFileName = `documento_${Date.now()}.pdf`;
-    setFileName(mockFileName);
-    Alert.alert('Arquivo Selecionado', mockFileName);
+  const handleFileSelect = async () => {
+    try {
+      console.log('[EmployeeDashboard] Iniciando seleção de arquivo...');
+      
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      console.log('[EmployeeDashboard] Resultado do DocumentPicker:', JSON.stringify(result, null, 2));
+
+      // Verificar se foi cancelado (versão nova usa 'canceled', versão antiga usa 'type: cancel')
+      if (result.canceled === true || (result as any).type === 'cancel') {
+        console.log('[EmployeeDashboard] Seleção cancelada pelo usuário');
+        return;
+      }
+
+      // Versão nova do expo-document-picker usa 'assets' array
+      if ('assets' in result && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        
+        // Validar tamanho do arquivo (10MB máximo)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+          const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+          Alert.alert(
+            'Arquivo muito grande',
+            `O arquivo selecionado tem ${sizeMB}MB. O tamanho máximo permitido é 10MB. Por favor, selecione um arquivo menor.`
+          );
+          return;
+        }
+        
+        const fileName = file.name || file.uri?.split('/').pop() || 'documento.pdf';
+        const fileUri = file.uri;
+
+        console.log('[EmployeeDashboard] Arquivo selecionado (nova API):', {
+          name: fileName,
+          uri: fileUri,
+          size: file.size,
+          sizeMB: (file.size / (1024 * 1024)).toFixed(2),
+          mimeType: file.mimeType,
+        });
+
+        // Atualizar estado com o arquivo selecionado
+        setSelectedFile({
+          type: 'success',
+          name: fileName,
+          uri: fileUri,
+          size: file.size,
+          mimeType: file.mimeType || 'application/pdf',
+        } as any);
+
+        setFileName(fileName);
+        
+        Alert.alert('Sucesso', `Arquivo "${fileName}" selecionado com sucesso!`);
+        return;
+      }
+
+      // Versão antiga do expo-document-picker usa 'type' e propriedades diretas
+      if ((result as any).type === 'success') {
+        const file = result as any;
+        const fileName = file.name || file.uri?.split('/').pop() || 'documento.pdf';
+        const fileUri = file.uri;
+
+        console.log('[EmployeeDashboard] Arquivo selecionado (API antiga):', {
+          name: fileName,
+          uri: fileUri,
+          size: file.size,
+          mimeType: file.mimeType,
+        });
+
+        setSelectedFile({
+          type: 'success',
+          name: fileName,
+          uri: fileUri,
+          size: file.size,
+          mimeType: file.mimeType || 'application/pdf',
+        } as any);
+
+        setFileName(fileName);
+        
+        Alert.alert('Sucesso', `Arquivo "${fileName}" selecionado com sucesso!`);
+        return;
+      }
+
+      // Se chegou aqui, o formato não foi reconhecido
+      console.error('[EmployeeDashboard] Formato de resultado inesperado:', result);
+      Alert.alert('Erro', 'Formato de arquivo não reconhecido. Tente novamente.');
+    } catch (error) {
+      console.error('[EmployeeDashboard] Erro ao selecionar arquivo:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('[EmployeeDashboard] Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      Alert.alert('Erro', `Não foi possível selecionar o arquivo: ${errorMessage}`);
+    }
   };
 
   const handleFileUpload = async () => {
-    if (!fileName) {
+    if (!selectedFile || (selectedFile as any).type === 'cancel') {
       Alert.alert('Erro', 'Por favor, selecione um arquivo primeiro.');
       return;
     }
 
     if (!uploadingFileFor) return;
 
+    setIsUploading(true);
+
     try {
       const { type, request } = uploadingFileFor;
-      const fileData = { name: fileName, url: '#' }; // Mock URL
 
+      // Para React Native, precisamos usar o URI do arquivo
+      const fileUri = (selectedFile as any).uri;
+      const fileName = (selectedFile as any).name || 'documento.pdf';
+      const fileType = (selectedFile as any).mimeType || 'application/pdf';
+      const fileSize = (selectedFile as any).size;
+      
+      console.log('[EmployeeDashboard] Preparando upload:', {
+        uri: fileUri,
+        name: fileName,
+        type: fileType,
+        size: fileSize,
+        sizeMB: (fileSize / (1024 * 1024)).toFixed(2),
+      });
+      
+      // Verificar se o URI do arquivo está correto
+      if (!fileUri) {
+        throw new Error('URI do arquivo não encontrado');
+      }
+      
+      // No React Native, o URI deve começar com file://
+      if (!fileUri.startsWith('file://') && !fileUri.startsWith('content://')) {
+        console.warn('[EmployeeDashboard] URI do arquivo pode estar incorreto:', fileUri);
+      }
+
+      // Criar FormData para upload
+      // IMPORTANTE: No React Native, o FormData precisa ser criado de forma específica
+      const formData = new FormData();
+      
+      // FormData para React Native - formato correto
+      // No React Native, precisamos usar o formato específico com uri, type e name
+      // O nome do campo deve ser 'file' para corresponder ao FileInterceptor('file') no backend
+      formData.append('file', {
+        uri: fileUri,
+        type: fileType,
+        name: fileName,
+      } as any);
+      
+      console.log('[EmployeeDashboard] FormData criado:', {
+        hasFile: formData.has('file'),
+        fileUri,
+        fileName,
+        fileType,
+        fileSize,
+      });
+      
+      // Verificar se o URI do arquivo está correto
+      if (!fileUri) {
+        throw new Error('URI do arquivo não encontrado');
+      }
+      
+      // No React Native, o URI deve começar com file://
+      if (!fileUri.startsWith('file://') && !fileUri.startsWith('content://')) {
+        console.warn('[EmployeeDashboard] URI do arquivo pode estar incorreto:', fileUri);
+      }
+
+      // Determinar endpoint baseado no tipo
+      // Para orçamentos, usar _codOrcamento (UUID) se disponível
+      // Para contratos, usar _idContrato (UUID) se disponível
+      let endpoint = '';
+      let entityId: string;
+
+      if (type === 'quote') {
+        // Upload de orçamento - usar _codOrcamento se disponível, senão criar orçamento primeiro
+        const requestAny = request as any;
+        if (requestAny._codOrcamento) {
+          // Já existe orçamento, usar o UUID
+          entityId = requestAny._codOrcamento;
+          endpoint = `/orcamentos/${entityId}/upload`;
+        } else if (requestAny._idSolicitacao) {
+          // É uma solicitação pendente, criar orçamento automaticamente
+          console.log('[EmployeeDashboard] Criando orçamento automaticamente para solicitação:', requestAny._idSolicitacao);
+          
+          try {
+            // ApiService já é uma instância singleton exportada
+            console.log('[EmployeeDashboard] Chamando createOrcamentoFromRequest...');
+            console.log('[EmployeeDashboard] Token disponível:', ApiService.hasToken());
+            const orcamentoResponse = await ApiService.createOrcamentoFromRequest(requestAny._idSolicitacao);
+            
+            if (!orcamentoResponse.success) {
+              // Se o erro for 409 (já existe orçamento), buscar a solicitação para obter o cod_orcamento
+              if (orcamentoResponse.statusCode === 409) {
+                console.log('[EmployeeDashboard] Orçamento já existe, buscando solicitação para obter cod_orcamento...');
+                const solicitacaoResponse = await ApiService.getRequest(requestAny._idSolicitacao);
+                
+                if (solicitacaoResponse.success && solicitacaoResponse.data) {
+                  const solicitacao = solicitacaoResponse.data.data || solicitacaoResponse.data;
+                  entityId = solicitacao.cod_orcamento;
+                  
+                  if (entityId) {
+                    endpoint = `/orcamentos/${entityId}/upload`;
+                    console.log('[EmployeeDashboard] Usando orçamento existente, fazendo upload para:', endpoint);
+                  } else {
+                    throw new Error('Orçamento existe mas não foi possível obter o cod_orcamento');
+                  }
+                } else {
+                  throw new Error('Não foi possível buscar a solicitação para obter o orçamento existente');
+                }
+              } else {
+                throw new Error(orcamentoResponse.error || 'Erro ao criar orçamento');
+              }
+            } else {
+              // Usar o cod_orcamento retornado
+              entityId = orcamentoResponse.data?.cod_orcamento || orcamentoResponse.data?.data?.cod_orcamento;
+              
+              if (!entityId) {
+                throw new Error('Orçamento criado mas não foi possível obter o ID');
+              }
+              
+              endpoint = `/orcamentos/${entityId}/upload`;
+              console.log('[EmployeeDashboard] Orçamento criado com sucesso, fazendo upload para:', endpoint);
+            }
+          } catch (createError) {
+            console.error('[EmployeeDashboard] Erro ao criar/buscar orçamento:', createError);
+            throw new Error(`Erro ao criar/buscar orçamento: ${createError instanceof Error ? createError.message : 'Erro desconhecido'}`);
+          }
+        } else {
+          // Tentar usar o ID numérico - pode ser um UUID que foi convertido incorretamente
+          // Se não funcionar, o backend retornará um erro claro
+          entityId = request.id.toString();
+          endpoint = `/orcamentos/${entityId}/upload`;
+          console.warn('[EmployeeDashboard] Tentando upload com ID numérico - pode não funcionar se o backend esperar UUID');
+        }
+      } else {
+        // Upload de contrato - usar _idContrato se disponível
+        const requestAny = request as any;
+        if (requestAny._idContrato) {
+          entityId = requestAny._idContrato;
+        } else {
+          entityId = request.id.toString();
+        }
+        endpoint = `/contratos/${entityId}/upload`;
+      }
+
+      console.log(`[EmployeeDashboard] Fazendo upload para: ${endpoint} (entityId: ${entityId})`);
+
+      // Fazer upload do arquivo
+      // IMPORTANTE: Não definir Content-Type manualmente - o axios/form-data faz isso automaticamente
+      // Com timeout maior para arquivos grandes (5 minutos)
+      console.log('[EmployeeDashboard] Iniciando upload...');
+      
+      // Configuração específica para upload de arquivo no React Native
+      // IMPORTANTE: No React Native, não devemos definir headers manualmente para FormData
+      // O axios/form-data faz isso automaticamente com o boundary correto
+      const uploadConfig: any = {
+        timeout: 300000, // 5 minutos para arquivos grandes
+        // Não definir headers - o interceptador do ApiService já remove Content-Type para FormData
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      };
+      
+      console.log('[EmployeeDashboard] Configuração de upload:', {
+        timeout: uploadConfig.timeout,
+        endpoint,
+        fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)}MB`,
+      });
+      
+      // Usar fetch nativo do React Native para uploads (mais confiável que axios com FormData)
+      // ApiService já é uma instância exportada como default
+      const token = ApiService.getAuthToken();
+      const baseURL = API_BASE_URL || 'http://192.168.1.7:3000';
+      const fullUrl = `${baseURL}${endpoint}`;
+      
+      console.log('[EmployeeDashboard] Fazendo upload com fetch nativo para:', fullUrl);
+      
+      const fetchResponse = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          // NÃO definir Content-Type - o fetch faz isso automaticamente para FormData
+        },
+        body: formData,
+      });
+      
+      console.log('[EmployeeDashboard] Resposta do fetch:', {
+        status: fetchResponse.status,
+        statusText: fetchResponse.statusText,
+        ok: fetchResponse.ok,
+      });
+      
+      if (!fetchResponse.ok) {
+        const errorData = await fetchResponse.json().catch(() => ({ message: 'Erro desconhecido' }));
+        throw new Error(errorData.message || `Erro ${fetchResponse.status}: ${fetchResponse.statusText}`);
+      }
+      
+      const responseData = await fetchResponse.json();
+      
+      const uploadResponse = {
+        success: true,
+        data: responseData,
+        statusCode: fetchResponse.status,
+      };
+
+      console.log('[EmployeeDashboard] Resposta do upload:', uploadResponse);
+
+      // Atualizar solicitação com dados do arquivo
+      const fileData = {
+        name: fileName,
+        url: uploadResponse.data?.filePath || uploadResponse.data?.data?.filePath || '#',
+      };
+
+      console.log('[EmployeeDashboard] Atualizando solicitação com arquivo:', fileData);
+      
       await requestController.attachFileToRequest(request.id, type, fileData);
 
       setUploadingFileFor(null);
       setFileName('');
+      setSelectedFile(null);
+      
       Alert.alert('Sucesso', `${type === 'quote' ? 'Orçamento' : 'Contrato'} enviado com sucesso!`);
     } catch (error) {
-      console.error('Error uploading file:', error);
-      Alert.alert('Erro', 'Erro ao enviar arquivo. Tente novamente.');
+      console.error('[EmployeeDashboard] Erro ao fazer upload:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar arquivo. Tente novamente.';
+      console.error('[EmployeeDashboard] Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      Alert.alert('Erro', errorMessage);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -483,19 +798,31 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                   📎 Anexar {uploadingFileFor.type === 'quote' ? 'Orçamento' : 'Contrato'}
                 </Text>
 
-                <TouchableOpacity style={styles.selectFileButton} onPress={handleFileSelect}>
+                <TouchableOpacity 
+                  style={styles.selectFileButton} 
+                  onPress={handleFileSelect}
+                  disabled={isUploading}
+                >
                   <Text style={styles.selectFileButtonText}>
-                    {fileName || '📁 Selecionar Arquivo'}
+                    {fileName || '📁 Selecionar Arquivo PDF'}
                   </Text>
                 </TouchableOpacity>
 
+                {fileName && (
+                  <Text style={styles.fileInfoText}>
+                    Arquivo: {fileName}
+                  </Text>
+                )}
+
                 <View style={styles.uploadActions}>
                   <TouchableOpacity
-                    style={styles.uploadButton}
+                    style={[styles.uploadButton, (isUploading || !selectedFile) && styles.uploadButtonDisabled]}
                     onPress={handleFileUpload}
-                    disabled={!fileName}
+                    disabled={isUploading || !selectedFile}
                   >
-                    <Text style={styles.uploadButtonText}>✅ Confirmar Upload</Text>
+                    <Text style={styles.uploadButtonText}>
+                      {isUploading ? '⏳ Enviando...' : '✅ Confirmar Upload'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -503,7 +830,9 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                     onPress={() => {
                       setUploadingFileFor(null);
                       setFileName('');
+                      setSelectedFile(null);
                     }}
+                    disabled={isUploading}
                   >
                     <Text style={styles.cancelButtonText}>Cancelar</Text>
                   </TouchableOpacity>
@@ -1054,6 +1383,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  uploadButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.6,
+  },
+  fileInfoText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 8,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   cancelButton: {
     flex: 1,

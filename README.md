@@ -364,7 +364,7 @@ O app detecta automaticamente a plataforma e usa o storage apropriado:
 
 ### Configuração do Backend
 
-Antes de executar o frontend, certifique-se de que o backend está rodando:
+Antes de executar o frontend, certifique-se de que o backend está rodando e configurado:
 
 ```bash
 # No diretório do backend
@@ -374,6 +374,19 @@ npm run start:dev
 ```
 
 O backend deve estar rodando em `http://localhost:3000`
+
+**⚠️ IMPORTANTE - Executar Seeder:**
+Para poder fazer login com o funcionário de teste, você **DEVE** executar o seeder do backend primeiro:
+
+```bash
+# No diretório do backend
+cd ../backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS
+npm run db:seed
+```
+
+O seeder cria os usuários de teste (funcionário e cliente) no banco de dados. Sem executar o seeder, as credenciais de teste não funcionarão.
+
+Para mais detalhes sobre as credenciais, consulte: [README do Backend](../backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS/README.md#-credenciais-de-teste-seeder) ou [CREDENCIAIS_TESTE.md](../backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS/CREDENCIAIS_TESTE.md)
 
 ### Configuração da API
 
@@ -391,17 +404,50 @@ Para descobrir seu IP local:
 
 ## 🔑 Credenciais de Teste
 
-### Modo Offline (SQLite Local)
-- **Cliente**: `client@example.com`
-- **Funcionário**: `employee@example.com`
-- **Senha**: Qualquer senha (não validada no modo offline)
+> **⚠️ IMPORTANTE:** As credenciais de teste foram removidas do código por segurança. Elas estão documentadas aqui apenas para referência durante desenvolvimento e testes.
 
-### Modo Online (Backend)
-Cadastre um novo usuário usando a tela de registro ou use as credenciais cadastradas no backend.
+### Modo Offline (SQLite Local) - Apenas para Desenvolvimento
 
-**⚠️ Importante:** O app funciona em dois modos:
-- **Offline:** Dados mockados no SQLite local (para desenvolvimento)
-- **Online:** Comunicação com backend NestJS (modo produção)
+Para usar o modo offline durante desenvolvimento, você precisará criar manualmente os usuários de teste no banco SQLite local ou usar o backend.
+
+**Credenciais de teste (apenas para desenvolvimento):**
+- **Cliente**: 
+  - Email: `client@example.com`
+  - Senha: `password123`
+- **Funcionário**: 
+  - Email: `employee@example.com`
+  - Senha: `password123`
+
+**⚠️ Nota de Segurança:** 
+- Essas credenciais **NÃO** estão mais hardcoded no código
+- Elas devem ser usadas **APENAS** em ambiente de desenvolvimento
+- **NUNCA** use essas credenciais em produção
+- Em produção, todos os usuários devem ser cadastrados através do backend
+
+### Modo Online (Backend) - Recomendado para Produção
+
+Para usar o app em modo produção:
+
+1. **Certifique-se de que o backend está rodando** (ver seção "Configuração do Backend" acima)
+
+2. **Execute o seeder do backend** (OBRIGATÓRIO para usar credenciais de teste):
+   ```bash
+   cd ../backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS
+   npm run db:seed
+   ```
+
+3. **Use as credenciais criadas pelo seeder:**
+   - **Funcionário:** `joao.silva@adacompany.com` / `admin123`
+   - **Cliente:** `demo@empresa.com` / `cliente123`
+
+   Ou cadastre um novo usuário usando a tela de registro.
+
+**⚠️ Importante:** 
+- O app funciona em dois modos:
+  - **Offline:** Banco SQLite local (apenas para desenvolvimento/testes)
+  - **Online:** Comunicação com backend NestJS (modo produção recomendado)
+- **Sem executar o seeder, as credenciais de teste do backend não funcionarão!**
+- Para mais detalhes, consulte: [CREDENCIAIS_TESTE.md](../backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS/CREDENCIAIS_TESTE.md)
 
 ---
 

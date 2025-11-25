@@ -11,6 +11,7 @@ import { PlanSelectionScreen } from './PlanSelectionScreen.native';
 import { Timeline } from '../components/Timeline.native';
 import { ImageUtils } from '../../utils/ImageUtils';
 import { type User } from '../../models';
+import ApiService from '../../services/ApiService';
 
 interface ClientDashboardProps {
   user: User;
@@ -160,15 +161,20 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const handleConfirmPlan = async (plan: 'A' | 'AA' | 'AAA', selectedIssues: any[]) => {
     try {
+      // Obter a URL real da avaliação
+      const evaluationState = evaluationController.getState();
+      const siteUrl = evaluationState.currentEvaluation?.siteUrl || '';
+      
       const requestData = {
         clientName: user.name,
-        site: `site-${Date.now()}.com`,
+        site: siteUrl,
         plan,
         status: 'Awaiting Quote' as const,
         selectedIssues,
       };
 
-      await requestController.createRequest(requestData);
+      // Passar o email do cliente para salvar no backend
+      await requestController.createRequest(requestData, user.email);
 
       setEvaluationState({ plan: null, issues: [] });
       setActiveTab('acompanhar');
@@ -184,22 +190,97 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const handleApproveQuote = async (requestId: string) => {
     try {
-      const nextStatus = requestController.getStatusConfig().nextStatus['Quote Sent'];
-      if (nextStatus) {
-        await requestController.updateRequestStatus(Number(requestId), nextStatus);
+      const requestAny = requestState.requests.find((r: any) => r.id.toString() === requestId) as any;
+      if (!requestAny?._idSolicitacao) {
+        Alert.alert('Erro', 'ID da solicitação não encontrado.');
+        return;
+      }
+
+      console.log('[ClientDashboard] Aprovando orçamento:', {
+        requestId,
+        _idSolicitacao: requestAny._idSolicitacao,
+        status: requestAny.status,
+        quoteFile: requestAny.quoteFile
+      });
+
+      // Atualizar status para ORCAMENTO_APROVADO no backend
+      // ApiService já é uma instância exportada como default
+      const response = await ApiService.updateSolicitacao(requestAny._idSolicitacao, {
+        status: 'ORCAMENTO_APROVADO',
+      });
+
+      if (response.success) {
+        // Atualizar status local
+        const nextStatus = requestController.getStatusConfig().nextStatus['Quote Sent'];
+        if (nextStatus) {
+          await requestController.updateRequestStatus(Number(requestId), nextStatus);
+        }
+        // Recarregar solicitações para atualizar o estado
+        await requestController.loadRequestsFromApi();
+        Alert.alert('Sucesso!', 'Orçamento aprovado! Aguarde o contrato.');
+      } else {
+        throw new Error(response.error || 'Erro ao aprovar orçamento');
       }
     } catch (error) {
       console.error('Error approving quote:', error);
+      Alert.alert('Erro', 'Erro ao aprovar orçamento. Tente novamente.');
       throw error;
     }
   };
 
-  const handleSignContract = async (requestId: string) => {
+  const handleRejectQuote = async (requestId: string) => {
+    Alert.alert(
+      'Recusar Orçamento',
+      'Deseja realmente recusar este orçamento? Esta ação não pode ser desfeita.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Recusar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const requestAny = requestState.requests.find((r: any) => r.id.toString() === requestId) as any;
+              if (!requestAny?._idSolicitacao) {
+                Alert.alert('Erro', 'ID da solicitação não encontrado.');
+                return;
+              }
+
+              // Atualizar status para CANCELADA no backend
+              // ApiService já é uma instância exportada como default
+              const response = await ApiService.updateSolicitacao(requestAny._idSolicitacao, {
+                status: 'CANCELADA',
+              });
+
+              if (response.success) {
+                // Atualizar status local
+                await requestController.updateRequestStatus(parseInt(requestId), 'Completed');
+                Alert.alert('Sucesso', 'Orçamento recusado com sucesso.');
+                // Recarregar solicitações
+                await requestController.loadRequestsFromApi();
+              } else {
+                throw new Error(response.error || 'Erro ao recusar orçamento');
+              }
+            } catch (error) {
+              console.error('Error rejecting quote:', error);
+              Alert.alert('Erro', 'Erro ao recusar orçamento. Tente novamente.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSignContract = async (requestId: string, signatureBase64?: string) => {
     try {
-      // Cliente assina contrato, muda de 'Contract Sent' para 'Contract Signed'
-      const nextStatus = requestController.getStatusConfig().nextStatus['Contract Sent'];
-      if (nextStatus) {
-        await requestController.updateRequestStatus(Number(requestId), nextStatus);
+      if (signatureBase64) {
+        // Assinar contrato com assinatura digital
+        await requestController.signContract(Number(requestId), signatureBase64);
+      } else {
+        // Fallback: apenas atualizar status (compatibilidade)
+        const nextStatus = requestController.getStatusConfig().nextStatus['Contract Sent'];
+        if (nextStatus) {
+          await requestController.updateRequestStatus(Number(requestId), nextStatus);
+        }
       }
     } catch (error) {
       console.error('Error signing contract:', error);
@@ -433,6 +514,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
               request={activeRequest}
               statusConfig={requestController.getStatusConfig()}
               onApprove={handleApproveQuote}
+              onReject={handleRejectQuote}
               onSignContract={handleSignContract}
             />
           </ScrollView>
@@ -477,6 +559,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                   request={selectedHistoryRequest}
                   statusConfig={requestController.getStatusConfig()}
                   onApprove={handleApproveQuote}
+                  onReject={handleRejectQuote}
                   onSignContract={handleSignContract}
                 />
               </ScrollView>
@@ -527,22 +610,50 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             <Text style={styles.historyTitle}>📋 Histórico de Planos</Text>
             <Text style={styles.historyHint}>💡 Toque em um projeto para ver os detalhes completos</Text>
             {clientRequests.length > 0 ? (
-              clientRequests.map((req) => (
-                <TouchableOpacity 
-                  key={req.id} 
-                  style={styles.historyCard}
-                  onPress={() => setSelectedHistoryRequest(req)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.historyCardContent}>
-                    <Text style={styles.historyProject}>{req.site} - Plano {req.plan}</Text>
-                    <Text style={styles.historyStatus}>
-                      Status: {requestController.getStatusConfig().map[req.status]}
-                    </Text>
+              clientRequests.map((req) => {
+                const reqAny = req as any;
+                const canApproveOrReject = req.status === 'Quote Sent' && reqAny._idSolicitacao;
+                
+                return (
+                  <View key={req.id} style={styles.historyCardContainer}>
+                    <TouchableOpacity 
+                      style={styles.historyCard}
+                      onPress={() => setSelectedHistoryRequest(req)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.historyCardContent}>
+                        <Text style={styles.historyProject}>{req.site} - Plano {req.plan}</Text>
+                        <Text style={styles.historyStatus}>
+                          Status: {requestController.getStatusConfig().map[req.status]}
+                        </Text>
+                      </View>
+                      <Text style={styles.historyArrow}>→</Text>
+                    </TouchableOpacity>
+                    {canApproveOrReject && (
+                      <View style={styles.historyActions}>
+                        <TouchableOpacity
+                          style={styles.historyApproveButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleApproveQuote(req.id.toString());
+                          }}
+                        >
+                          <Text style={styles.historyApproveButtonText}>✅ Aprovar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.historyRejectButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleRejectQuote(req.id.toString());
+                          }}
+                        >
+                          <Text style={styles.historyRejectButtonText}>❌ Recusar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-                  <Text style={styles.historyArrow}>→</Text>
-                </TouchableOpacity>
-              ))
+                );
+              })
             ) : (
               <Text style={styles.historyEmpty}>Nenhum plano contratado ainda.</Text>
             )}
@@ -824,11 +935,13 @@ const styles = StyleSheet.create({
     color: '#6366f1',
     marginBottom: 12,
   },
+  historyCardContainer: {
+    marginBottom: 12,
+  },
   historyCard: {
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -861,6 +974,38 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  historyActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  historyApproveButton: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  historyApproveButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  historyRejectButton: {
+    flex: 1,
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  historyRejectButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
   },
   historyDetailContainer: {
     flex: 1,

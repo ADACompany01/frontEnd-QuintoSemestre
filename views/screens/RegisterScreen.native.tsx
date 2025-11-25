@@ -9,12 +9,12 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -37,7 +37,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [userType, setUserType] = useState<'client' | 'employee'>('client');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -88,19 +87,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
     try {
       console.log('[RegisterScreen] Registrando usuário...');
-      
+
       const response = await ApiService.register({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        type: userType,
+        type: 'client', // Sempre cliente - funcionários não podem se cadastrar
         phone: phone.trim() || undefined,
       });
 
       if (response.success && response.data) {
         console.log('[RegisterScreen] Registro bem-sucedido!');
         console.log('[RegisterScreen] Dados recebidos:', response.data);
-        
+
         // Mapear resposta do backend para formato esperado pelo frontend
         const user = {
           id: response.data.user?.id,
@@ -108,10 +107,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           email: response.data.user?.email || email.trim(),
           type: response.data.user?.tipo === 'funcionario' ? 'employee' : 'client',
         };
-        
+
         console.log('[RegisterScreen] Usuário mapeado:', user);
         console.log('[RegisterScreen] Token recebido:', response.data.token ? 'Sim' : 'Não');
-        
+
         // O token já foi salvo pelo ApiService, então o usuário já está autenticado
         Alert.alert(
           '✅ Sucesso!',
@@ -134,7 +133,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     }
   };
 
-  return (
+return (
     <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -154,47 +153,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
           {/* Form */}
           <View style={styles.form}>
-            {/* User Type Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Tipo de Conta</Text>
-              <View style={styles.typeSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    userType === 'client' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setUserType('client')}
-                  disabled={isLoading}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      userType === 'client' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    👤 Cliente
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    userType === 'employee' && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setUserType('employee')}
-                  disabled={isLoading}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      userType === 'employee' && styles.typeButtonTextActive,
-                    ]}
-                  >
-                    💼 Funcionário
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             {/* Name field */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nome Completo *</Text>
@@ -269,11 +227,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             </View>
 
             {/* Error message */}
-            {error && (
+            {error ? (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
-            )}
+            ) : null}
 
             {/* Submit button */}
             <TouchableOpacity
@@ -373,31 +331,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9ca3af',
     fontStyle: 'italic',
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  typeButton: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  typeButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  typeButtonTextActive: {
-    color: 'white',
   },
   errorContainer: {
     backgroundColor: '#fef2f2',
