@@ -40,7 +40,8 @@ const getExpoIP = (): string | null => {
 export const getApiBaseUrl = (): string => {
   // FORÇAR NUVEM: Retorna direto a URL do seu backend
   // Removi a barra final '/' para evitar duplicidade (ex: //auth)
-  const url = 'http://adacompany.duckdns.org/api/mobile';
+  // Mudado de /api/mobile para /api porque apenas o LighthouseController usa o prefixo mobile
+  const url = 'http://adacompany.duckdns.org/api';
   
   console.log('[API] URL Fixa (Nuvem):', url);
   return url;

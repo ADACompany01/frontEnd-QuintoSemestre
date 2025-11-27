@@ -64,7 +64,8 @@ export class ApiService {
           console.log('[API] FormData detectado - Content-Type removido para permitir boundary automático');
         }
         
-        console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url;
+        console.log(`[API] ${config.method?.toUpperCase()} ${config.url} (URL completa: ${fullUrl})`);
         return config;
       },
       (error) => {
@@ -585,7 +586,11 @@ export class ApiService {
    * Analisa acessibilidade de um site
    */
   async analyzeSiteAccessibility(url: string): Promise<ApiResponse<any>> {
-    return this.post(API_ENDPOINTS.LIGHTHOUSE.ANALYZE, { url });
+    const endpoint = API_ENDPOINTS.LIGHTHOUSE.ANALYZE;
+    console.log('[API] analyzeSiteAccessibility - Endpoint:', endpoint);
+    console.log('[API] analyzeSiteAccessibility - Base URL:', API_CONFIG.baseURL);
+    console.log('[API] analyzeSiteAccessibility - URL completa:', `${API_CONFIG.baseURL}${endpoint}`);
+    return this.post(endpoint, { url });
   }
 
   /**

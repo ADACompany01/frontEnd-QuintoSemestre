@@ -396,12 +396,26 @@ export class EvaluationModel {
       return 'Não foi possível acessar o site. Verifique se o endereço está correto e se o site está online.';
     }
     
-    // Remover referências técnicas
-    let friendlyMsg = errorMessage
+    // Remover referências técnicas (mas NÃO substituir em URLs/paths)
+    // Primeiro, proteger URLs/paths temporariamente
+    const urlPattern = /(https?:\/\/[^\s]+|\/[^\s]*)/g;
+    const urls: string[] = [];
+    let protectedMsg = errorMessage.replace(urlPattern, (match) => {
+      urls.push(match);
+      return `__URL_${urls.length - 1}__`;
+    });
+    
+    // Agora fazer as substituições apenas no texto (não nas URLs)
+    let friendlyMsg = protectedMsg
       .replace(/erro ao executar o lighthouse:/gi, '')
       .replace(/lighthouse/gi, 'análise')
       .replace(/não foi possível analisar o site/gi, 'Não foi possível analisar o site')
       .trim();
+    
+    // Restaurar URLs originais
+    urls.forEach((url, index) => {
+      friendlyMsg = friendlyMsg.replace(`__URL_${index}__`, url);
+    });
     
     // Se a mensagem ficou vazia ou muito técnica, usar mensagem genérica
     if (!friendlyMsg || friendlyMsg.length < 10) {

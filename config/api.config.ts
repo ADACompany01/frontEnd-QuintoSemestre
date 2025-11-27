@@ -88,8 +88,9 @@ export const API_ENDPOINTS = {
   },
   
   // Lighthouse (avaliação de acessibilidade)
+  // Nota: O LighthouseController usa o prefixo 'mobile/lighthouse'
   LIGHTHOUSE: {
-    ANALYZE: '/lighthouse/analyze',
+    ANALYZE: '/mobile/lighthouse/analyze',
   },
   
   // Logs
