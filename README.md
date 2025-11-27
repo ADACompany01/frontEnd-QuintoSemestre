@@ -105,7 +105,7 @@ O projeto utiliza uma arquitetura moderna baseada em serviços AWS para garantir
 
 ### 📊 Diagrama de Arquitetura
 
-![Diagrama de Infraestrutura AWS](./assets/DiagramaAdaCompany.drawio.png)
+![Diagrama de Infraestrutura AWS](./assets/DiagramaAdaCompany.png)
 
 ### 🏗️ Componentes da Infraestrutura
 
